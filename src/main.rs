@@ -1,10 +1,14 @@
-use actix_web::{App, HttpServer};
-use std::io::Result;
+use dotenvy::dotenv;
+
+mod config;
 
 #[actix_web::main]
-async fn main() -> Result<()> {
-    HttpServer::new(|| App::new())
-        .bind("127.0.0.1:8080")?
-        .run()
-        .await
+async fn main() -> std::io::Result<()> {
+    dotenv().ok();
+
+    tracing_subscriber::fmt().init();
+
+    let connection = config::db::connect_db().await;
+
+    config::server::start_server(connection).await
 }

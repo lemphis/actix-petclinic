@@ -4,7 +4,7 @@ This project is a Rust-based migration of the original [Spring Petclinic](https:
 
 ## License
 
-This project is licensed under the Apache License 2.0, as is the original Spring Petclinic project. For more details, see the [LICENSE](./LICENSE) and [NOTICE](./NOTICE) files.
+This project is licensed under the Apache License 2.0, as is the original Spring Petclinic project. For more details, see the [LICENSE](./LICENSE) file.
 
 ## Acknowledgements
 
