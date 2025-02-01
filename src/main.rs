@@ -1,12 +1,12 @@
-use dotenvy::dotenv;
-
 mod config;
+mod domain;
+mod model;
+mod web;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    dotenv().ok();
-
-    tracing_subscriber::fmt().init();
+    config::env::load();
+    config::log::init();
 
     let connection = config::db::connect_db().await;
 
