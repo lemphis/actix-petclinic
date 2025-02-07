@@ -1,6 +1,6 @@
 use sea_orm::entity::prelude::*;
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "vet_specialties")]
 pub struct Model {
     #[sea_orm(primary_key)]
@@ -12,28 +12,32 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::vet::Entity",
-        from = "Column::VetId",
-        to = "super::vet::Column::Id"
-    )]
-    Vets,
-    #[sea_orm(
         belongs_to = "super::specialty::Entity",
         from = "Column::SpecialtyId",
-        to = "super::specialty::Column::Id"
+        to = "super::specialty::Column::Id",
+        on_update = "NoAction",
+        on_delete = "NoAction"
     )]
     Specialties,
-}
-
-impl Related<super::vet::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Vets.def()
-    }
+    #[sea_orm(
+        belongs_to = "super::vet::Entity",
+        from = "Column::VetId",
+        to = "super::vet::Column::Id",
+        on_update = "NoAction",
+        on_delete = "NoAction"
+    )]
+    Vets,
 }
 
 impl Related<super::specialty::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Specialties.def()
+    }
+}
+
+impl Related<super::vet::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Vets.def()
     }
 }
 
