@@ -1,29 +1,23 @@
+use std::sync::Arc;
+
 use crate::{
     domain::veterinarian::{specialty, vet, vet_specialty},
     model::error_response::ErrorResponse,
 };
 use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter};
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-
-#[derive(Debug, Deserialize)]
-struct ShowResourcesVetListQuery {
-    page: u64,
-    size: Option<u64>,
-}
+use quick_xml::se::to_string;
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use serde::Serialize;
 
 #[derive(Serialize, Clone)]
+#[serde(rename = "vets")]
+#[serde(rename_all = "camelCase")]
 struct ShowResourcesVetListResponse {
-    vets: VetList,
-}
-
-#[derive(Serialize, Clone)]
-struct VetList {
     vet_list: Vec<Vet>,
 }
 
 #[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 struct Vet {
     id: u32,
     first_name: Option<String>,
@@ -36,30 +30,25 @@ struct Vet {
 pub async fn show_resources_vet_list(
     connection: web::Data<Arc<DatabaseConnection>>,
     req: HttpRequest,
-    query: web::Query<ShowResourcesVetListQuery>,
 ) -> impl Responder {
     let conn = connection.as_ref().as_ref();
 
-    let vet_list = fetch_vet_data(conn, query.page, query.size.unwrap_or(5)).await;
+    let vet_list = fetch_vet_data(conn).await;
     if let Err(db_err) = vet_list {
         return handle_db_error(&req, db_err);
     }
 
     let response = ShowResourcesVetListResponse {
-        vets: VetList {
-            vet_list: vet_list.unwrap(),
-        },
+        vet_list: vet_list.unwrap(),
     };
 
-    HttpResponse::Ok().json(response)
+    HttpResponse::Ok()
+        .content_type("application/xml")
+        .body(to_string(&response).unwrap())
 }
 
-async fn fetch_vet_data(
-    conn: &DatabaseConnection,
-    page: u64,
-    size: u64,
-) -> Result<Vec<Vet>, sea_orm::DbErr> {
-    let vets = fetch_vets(conn, page, size).await?;
+async fn fetch_vet_data(conn: &DatabaseConnection) -> Result<Vec<Vet>, sea_orm::DbErr> {
+    let vets = fetch_vets(conn).await?;
 
     let vet_ids = vets.clone().iter().map(|vet| vet.id).collect::<Vec<_>>();
     let vet_specialties = fetch_vet_specialties(conn, &vet_ids).await?;
@@ -78,15 +67,8 @@ async fn fetch_vet_data(
     Ok(vet_list)
 }
 
-async fn fetch_vets(
-    conn: &DatabaseConnection,
-    page: u64,
-    size: u64,
-) -> Result<Vec<vet::Model>, sea_orm::DbErr> {
-    vet::Entity::find()
-        .paginate(conn, size)
-        .fetch_page(page - 1)
-        .await
+async fn fetch_vets(conn: &DatabaseConnection) -> Result<Vec<vet::Model>, sea_orm::DbErr> {
+    vet::Entity::find().all(conn).await
 }
 
 fn handle_db_error(req: &HttpRequest, db_err: sea_orm::DbErr) -> HttpResponse {
