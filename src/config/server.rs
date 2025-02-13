@@ -1,15 +1,10 @@
+use crate::{web, AppState};
 use actix_web::{middleware, web::Data, App, HttpServer};
-use sea_orm::DatabaseConnection;
-use std::sync::Arc;
 
-use crate::web;
-
-pub async fn start_server(db: DatabaseConnection) -> std::io::Result<()> {
-    let db = Arc::new(db);
-
+pub async fn start_server(app_state: AppState) -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
-            .app_data(Data::new(Arc::clone(&db)))
+            .app_data(Data::new(app_state.clone()))
             .wrap(middleware::Logger::default())
             .wrap(middleware::NormalizePath::trim())
             .configure(web::configure_route)

@@ -14,3 +14,5 @@ sea-orm = { version = "1.1", features = [
 ] }
 dotenvy = "0.15"
 chrono = "0.4"
+quick-xml = { version = "0.37", features = ["serialize"] }
+tera = "1.20"

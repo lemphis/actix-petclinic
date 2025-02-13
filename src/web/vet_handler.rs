@@ -1,13 +1,13 @@
-use std::sync::Arc;
-
 use crate::{
     domain::veterinarian::{specialty, vet, vet_specialty},
     model::error_response::ErrorResponse,
+    AppState,
 };
 use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
 use quick_xml::se::to_string;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use tera::{Context, Tera};
 
 #[derive(Serialize, Clone)]
 #[serde(rename = "vets")]
@@ -28,14 +28,14 @@ struct Vet {
 
 #[get("/vets")]
 pub async fn show_resources_vet_list(
-    connection: web::Data<Arc<DatabaseConnection>>,
     req: HttpRequest,
+    app_state: web::Data<AppState>,
 ) -> impl Responder {
-    let conn = connection.as_ref().as_ref();
+    let conn = &app_state.db;
 
     let vet_list = fetch_vet_data(conn).await;
     if let Err(db_err) = vet_list {
-        return handle_db_error(&req, db_err);
+        return ErrorResponse::handle_db_error(&req, &db_err);
     }
 
     let response = ShowResourcesVetListResponse {
@@ -69,13 +69,6 @@ async fn fetch_vet_data(conn: &DatabaseConnection) -> Result<Vec<Vet>, sea_orm::
 
 async fn fetch_vets(conn: &DatabaseConnection) -> Result<Vec<vet::Model>, sea_orm::DbErr> {
     vet::Entity::find().all(conn).await
-}
-
-fn handle_db_error(req: &HttpRequest, db_err: sea_orm::DbErr) -> HttpResponse {
-    HttpResponse::InternalServerError().json(ErrorResponse::new(
-        db_err.to_string(),
-        req.uri().to_string(),
-    ))
 }
 
 async fn fetch_vet_specialties(
