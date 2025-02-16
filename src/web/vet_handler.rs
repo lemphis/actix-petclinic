@@ -6,8 +6,8 @@ use crate::{
 use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
 use quick_xml::se::to_string;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
-use serde::{Deserialize, Serialize};
-use tera::{Context, Tera};
+use serde::Serialize;
+use std::collections::HashMap;
 
 #[derive(Serialize, Clone)]
 #[serde(rename = "vets")]
@@ -31,33 +31,39 @@ pub async fn show_resources_vet_list(
     req: HttpRequest,
     app_state: web::Data<AppState>,
 ) -> impl Responder {
-    let conn = &app_state.db;
-
-    let vet_list = fetch_vet_data(conn).await;
-    if let Err(db_err) = vet_list {
-        return ErrorResponse::handle_db_error(&req, &db_err);
-    }
-
-    let response = ShowResourcesVetListResponse {
-        vet_list: vet_list.unwrap(),
+    let vet_list = match fetch_all_vet_specialties(&app_state.conn).await {
+        Ok(vets) => vets,
+        Err(db_err) => return ErrorResponse::handle_error(&req, &db_err),
     };
 
-    HttpResponse::Ok()
-        .content_type("application/xml")
-        .body(to_string(&response).unwrap())
+    let response = ShowResourcesVetListResponse { vet_list };
+    match to_string(&response) {
+        Ok(xml) => HttpResponse::Ok().content_type("application/xml").body(xml),
+        Err(err) => ErrorResponse::handle_error(&req, &err),
+    }
 }
 
-async fn fetch_vet_data(conn: &DatabaseConnection) -> Result<Vec<Vet>, sea_orm::DbErr> {
-    let vets = fetch_vets(conn).await?;
+async fn fetch_all_vet_specialties(conn: &DatabaseConnection) -> Result<Vec<Vet>, sea_orm::DbErr> {
+    let vets = fetch_all_vets(conn).await?;
+    fetch_specialties_by_vets(conn, &vets).await
+}
 
-    let vet_ids = vets.clone().iter().map(|vet| vet.id).collect::<Vec<_>>();
-    let vet_specialties = fetch_vet_specialties(conn, &vet_ids).await?;
+async fn fetch_all_vets(conn: &DatabaseConnection) -> Result<Vec<vet::Model>, sea_orm::DbErr> {
+    vet::Entity::find().all(conn).await
+}
+
+async fn fetch_specialties_by_vets(
+    conn: &DatabaseConnection,
+    vets: &[vet::Model],
+) -> Result<Vec<Vet>, sea_orm::DbErr> {
+    let vet_ids = vets.iter().map(|vet| vet.id).collect::<Vec<_>>();
+    let vet_specialties = fetch_vet_specialties_by_vet_ids(conn, &vet_ids).await?;
 
     let specialty_ids = vet_specialties
         .iter()
         .map(|vs| vs.specialty_id)
         .collect::<Vec<_>>();
-    let specialties = fetch_specialties(conn, &specialty_ids).await?;
+    let specialties = fetch_specialties_by_specialty_ids(conn, &specialty_ids).await?;
 
     let vet_list = vets
         .iter()
@@ -67,11 +73,7 @@ async fn fetch_vet_data(conn: &DatabaseConnection) -> Result<Vec<Vet>, sea_orm::
     Ok(vet_list)
 }
 
-async fn fetch_vets(conn: &DatabaseConnection) -> Result<Vec<vet::Model>, sea_orm::DbErr> {
-    vet::Entity::find().all(conn).await
-}
-
-async fn fetch_vet_specialties(
+async fn fetch_vet_specialties_by_vet_ids(
     conn: &DatabaseConnection,
     vet_ids: &[u32],
 ) -> Result<Vec<vet_specialty::Model>, sea_orm::DbErr> {
@@ -81,7 +83,7 @@ async fn fetch_vet_specialties(
         .await
 }
 
-async fn fetch_specialties(
+async fn fetch_specialties_by_specialty_ids(
     conn: &DatabaseConnection,
     specialty_ids: &[u32],
 ) -> Result<Vec<specialty::Model>, sea_orm::DbErr> {
@@ -96,10 +98,13 @@ fn create_vet_response(
     vet_specialties: &[vet_specialty::Model],
     specialties: &[specialty::Model],
 ) -> Vet {
+    let specialty_map: HashMap<u32, specialty::Model> =
+        specialties.iter().cloned().map(|s| (s.id, s)).collect();
+
     let specialties: Vec<specialty::Model> = vet_specialties
         .iter()
         .filter(|vs| vet.id == vs.vet_id)
-        .filter_map(|vs| find_specialty(specialties, vs.specialty_id))
+        .filter_map(|vs| specialty_map.get(&vs.specialty_id).cloned())
         .collect();
 
     Vet {
@@ -108,8 +113,4 @@ fn create_vet_response(
         last_name: vet.last_name,
         specialties,
     }
-}
-
-fn find_specialty(specialties: &[specialty::Model], specialty_id: u32) -> Option<specialty::Model> {
-    specialties.iter().find(|s| specialty_id == s.id).cloned()
 }
