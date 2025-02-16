@@ -18,11 +18,9 @@ impl ErrorResponse {
         }
     }
 
-    pub fn handle_db_error(req: &HttpRequest, db_err: &sea_orm::DbErr) -> HttpResponse {
-        HttpResponse::InternalServerError().json(ErrorResponse::new(
-            db_err.to_string(),
-            req.uri().to_string(),
-        ))
+    pub fn handle_error(req: &HttpRequest, err: &dyn std::error::Error) -> HttpResponse {
+        HttpResponse::InternalServerError()
+            .json(ErrorResponse::new(err.to_string(), req.uri().to_string()))
     }
 }
 
@@ -34,13 +32,13 @@ mod tests {
     use super::ErrorResponse;
 
     #[test]
-    async fn test_handle_db_error() {
+    async fn test_handle_error() {
         let column_name = "test_column_name";
         let db_err = sea_orm::DbErr::Query(RuntimeErr::SqlxError(SqlxError::ColumnNotFound(
             String::from(column_name),
         )));
         let req = test::TestRequest::get().uri("/vets").to_http_request();
-        let res = ErrorResponse::handle_db_error(&req, &db_err);
+        let res = ErrorResponse::handle_error(&req, &db_err);
         assert_eq!(res.status(), StatusCode::INTERNAL_SERVER_ERROR);
         assert_eq!(
             db_err.to_string(),

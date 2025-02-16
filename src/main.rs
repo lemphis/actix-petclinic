@@ -8,7 +8,7 @@ mod web;
 
 #[derive(Clone)]
 struct AppState {
-    db: DatabaseConnection,
+    conn: DatabaseConnection,
     tera: Tera,
 }
 
@@ -18,9 +18,9 @@ async fn main() -> std::io::Result<()> {
     config::log::init();
 
     let tera = config::tera::init();
-    let db = config::db::connect_db().await;
+    let conn = config::db::connect_db().await;
 
-    let app_state = AppState { db, tera };
+    let app_state = AppState { conn, tera };
 
     config::server::start_server(app_state).await
 }
