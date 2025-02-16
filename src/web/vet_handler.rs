@@ -1,13 +1,16 @@
 use crate::{
     domain::veterinarian::{specialty, vet, vet_specialty},
-    model::error_response::ErrorResponse,
+    model::{error_response::ErrorResponse, page::Page},
     AppState,
 };
 use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
 use quick_xml::se::to_string;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
-use serde::Serialize;
+use sea_orm::{
+    ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder,
+};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use tera::Context;
 
 #[derive(Serialize, Clone)]
 #[serde(rename = "vets")]
@@ -113,4 +116,66 @@ fn create_vet_response(
         last_name: vet.last_name,
         specialties,
     }
+}
+
+#[derive(Deserialize, Clone)]
+struct ShowVetListQuery {
+    page: Option<u64>,
+    size: Option<u64>,
+}
+
+#[get("/vets.html")]
+pub async fn show_vet_list(
+    req: HttpRequest,
+    app_state: web::Data<AppState>,
+    query: web::Query<ShowVetListQuery>,
+) -> impl Responder {
+    let conn = &app_state.conn;
+    let (cur_page, size) = (query.page.unwrap_or(1), query.size.unwrap_or(5));
+    let (vet_list, vet_total_count) = match tokio::try_join!(
+        fetch_vet_specialties_with_pagination(conn, cur_page, size),
+        fetch_vet_total_count(conn)
+    ) {
+        Ok((vets, count)) => (vets, count),
+        Err(db_err) => return ErrorResponse::handle_error(&req, &db_err),
+    };
+
+    let page = Page::new(cur_page, vet_total_count);
+    let mut context = Context::new();
+    context.insert("vets", &vet_list);
+    context.insert("page", &cur_page);
+    context.insert("total_pages", &page.total_pages());
+    context.insert("has_previous", &page.has_previous());
+    context.insert("has_next", &page.has_next());
+    context.insert("page_range", page.page_range());
+
+    match app_state.tera.render("vet/vet-list.html", &context) {
+        Ok(html) => HttpResponse::Ok().body(html),
+        Err(err) => ErrorResponse::handle_error(&req, &err),
+    }
+}
+
+async fn fetch_vet_specialties_with_pagination(
+    conn: &DatabaseConnection,
+    page: u64,
+    size: u64,
+) -> Result<Vec<Vet>, sea_orm::DbErr> {
+    let vets = fetch_vets_with_pagination(conn, page, size).await?;
+    fetch_specialties_by_vets(conn, &vets).await
+}
+
+async fn fetch_vets_with_pagination(
+    conn: &DatabaseConnection,
+    page: u64,
+    size: u64,
+) -> Result<Vec<vet::Model>, sea_orm::DbErr> {
+    vet::Entity::find()
+        .order_by_asc(vet::Column::Id)
+        .paginate(conn, size)
+        .fetch_page(page - 1)
+        .await
+}
+
+async fn fetch_vet_total_count(conn: &DatabaseConnection) -> Result<u64, sea_orm::DbErr> {
+    vet::Entity::find().count(conn).await
 }
