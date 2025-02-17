@@ -148,6 +148,7 @@ pub async fn show_vet_list(
     context.insert("has_previous", &page.has_previous());
     context.insert("has_next", &page.has_next());
     context.insert("page_range", page.page_range());
+    context.insert("current_menu", "vets");
 
     match app_state.tera.render("vet/vet-list.html", &context) {
         Ok(html) => HttpResponse::Ok().body(html),
