@@ -1,86 +1,84 @@
 {% extends "fragments/layout.html" %}
 {% block content %}
-<body>
-  <h2>Veterinarians</h2>
+<h2>Veterinarians</h2>
 
-  <table id="vets" class="table table-striped">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Specialties</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for vet in vets %}
-      <tr>
-        <td>{{vet.firstName}} {{vet.lastName}}</td>
-        {% if vet.specialties is defined %}
-        <td>
-          {% for specialty in vet.specialties %}
-          <span>{{specialty.name ~ " "}}</span>
-          {% endfor %}
-        </td>
-        {% else %}
-        <td><span>none</span></td>
-        {% endif %}
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-
-  <div>
-    <span>Pages:</span>
-    <span>[</span>
-    {% for page_num in page_range %}
-    <span>
-      {% if page_num == page %}
-      <span>{{page_num}}</span>
+<table id="vets" class="table table-striped">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Specialties</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for vet in vets %}
+    <tr>
+      <td>{{ vet.firstName }} {{ vet.lastName }}</td>
+      {% if vet.specialties is defined %}
+      <td>
+        {% for specialty in vet.specialties %}
+        <span>{{ specialty.name ~ " " }}</span>
+        {% endfor %}
+      </td>
       {% else %}
-      <a href="/vets.html?page={{page_num}}">{{page_num}}</a>
+      <td><span>none</span></td>
       {% endif %}
-    </span>
+    </tr>
     {% endfor %}
-    <span>]&nbsp;</span>
-    <span>
-      {% if has_previous %}
-      <a href="/vets.html?page=1" title="First" class="fa fa-fast-backward"></a>
-      {% else %}
-      <span title="First" class="fa fa-fast-backward"></span>
-      {% endif %}
-    </span>
-    <span>
-      {% if has_previous %}
-      <a
-        href="/vets.html?page={{page - 1}}"
-        title="Previous"
-        class="fa fa-step-backward"
-      ></a>
-      {% else %}
-      <span title="Previous" class="fa fa-step-backward"></span>
-      {% endif %}
-    </span>
-    <span>
-      {% if has_next %}
-      <a
-        href="/vets.html?page={{page + 1}}"
-        title="Next"
-        class="fa fa-step-forward"
-      ></a>
-      {% else %}
-      <span title="Next" class="fa fa-step-forward"></span>
-      {% endif %}
-    </span>
-    <span>
-      {% if has_next %}
-      <a
-        href="/vets.html?page={{total_pages}}"
-        title="Last"
-        class="fa fa-fast-forward"
-      ></a>
-      {% else %}
-      <span title="Last" class="fa fa-fast-forward"></span>
-      {% endif %}
-    </span>
-  </div>
-</body>
+  </tbody>
+</table>
+
+<div>
+  <span>Pages:</span>
+  <span>[</span>
+  {% for page_num in page_range %}
+  <span>
+    {% if page_num == page %}
+    <span>{{ page_num }}</span>
+    {% else %}
+    <a href="/vets.html?page={{ page_num }}">{{ page_num }}</a>
+    {% endif %}
+  </span>
+  {% endfor %}
+  <span>]&nbsp;</span>
+  <span>
+    {% if has_previous %}
+    <a href="/vets.html?page=1" title="First" class="fa fa-fast-backward"></a>
+    {% else %}
+    <span title="First" class="fa fa-fast-backward"></span>
+    {% endif %}
+  </span>
+  <span>
+    {% if has_previous %}
+    <a
+      href="/vets.html?page={{ page - 1 }}"
+      title="Previous"
+      class="fa fa-step-backward"
+    ></a>
+    {% else %}
+    <span title="Previous" class="fa fa-step-backward"></span>
+    {% endif %}
+  </span>
+  <span>
+    {% if has_next %}
+    <a
+      href="/vets.html?page={{ page + 1 }}"
+      title="Next"
+      class="fa fa-step-forward"
+    ></a>
+    {% else %}
+    <span title="Next" class="fa fa-step-forward"></span>
+    {% endif %}
+  </span>
+  <span>
+    {% if has_next %}
+    <a
+      href="/vets.html?page={{ total_pages }}"
+      title="Last"
+      class="fa fa-fast-forward"
+    ></a>
+    {% else %}
+    <span title="Last" class="fa fa-fast-forward"></span>
+    {% endif %}
+  </span>
+</div>
 {% endblock content %}

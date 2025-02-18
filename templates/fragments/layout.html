@@ -4,8 +4,7 @@
 
 <html>
   <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <meta charset="utf-8" />
+    <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
@@ -33,7 +32,7 @@
         >
           <span class="navbar-toggler-icon"></span>
         </button>
-        <div class="collapse navbar-collapse" id="main-navbar" style>
+        <div class="collapse navbar-collapse" id="main-navbar">
           <ul class="nav navbar-nav me-auto">
           {{ nav::menu_item(link="/", active="home", title="home page", glyph="home", text="Home", current_menu=current_menu) }}
           {{ nav::menu_item(link="/owners/find", active="owners", title="find owners", glyph="search", text="Find owners", current_menu=current_menu) }}
