@@ -1,0 +1,6 @@
+{% extends "fragments/layout.html" %}
+{% block content %}
+<img src="/static/images/pets.png" />
+<h2>Something happened...</h2>
+<p>{{ message | default(value="Error message")}}</p>
+{% endblock content %}
