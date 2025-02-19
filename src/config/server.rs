@@ -8,6 +8,7 @@ pub async fn start_server(app_state: AppState) -> std::io::Result<()> {
             .app_data(Data::new(app_state.clone()))
             .wrap(middleware::Logger::default())
             .wrap(middleware::NormalizePath::trim())
+            .wrap(middleware::Compress::default())
             .service(Files::new("/static", "./static").show_files_listing())
             .configure(web::configure_route)
     })
