@@ -1,24 +1,26 @@
 use sea_orm::entity::prelude::*;
-use serde::Serialize;
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize)]
-#[sea_orm(table_name = "vets")]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
+#[sea_orm(table_name = "owners")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: u32,
     pub first_name: Option<String>,
     pub last_name: Option<String>,
+    pub address: Option<String>,
+    pub city: Option<String>,
+    pub telephone: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::vet_specialty::Entity")]
-    VetSpecialties,
+    #[sea_orm(has_many = "super::pet::Entity")]
+    Pets,
 }
 
-impl Related<super::vet_specialty::Entity> for Entity {
+impl Related<super::pet::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::VetSpecialties.def()
+        Relation::Pets.def()
     }
 }
 

@@ -17,10 +17,7 @@ pub enum Relation {
 
 impl Related<super::vet_specialty::Entity> for Entity {
     fn to() -> RelationDef {
-        super::vet_specialty::Relation::Vets.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::vet_specialty::Relation::Specialties.def().rev())
+        Relation::VetSpecialties.def()
     }
 }
 
