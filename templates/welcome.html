@@ -1,6 +1,6 @@
 {% extends "fragments/layout.html" %}
 {% block content %}
-<h2>{{ welcome | default(value="Welcome") }}</h2>
+<h2>{{ translation["welcome"] | default(value="Welcome") }}</h2>
 <div class="row">
   <div class="col-md-12">
     <img class="img-responsive" src="/static/images/pets.png" />

@@ -1,4 +1,4 @@
-use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
+use actix_web::{get, http::header::ContentType, web, HttpRequest, HttpResponse, Responder};
 use tera::Context;
 
 use crate::{model::error_response::ErrorResponse, AppState};
@@ -13,7 +13,9 @@ pub async fn trigger_error(req: HttpRequest, app_state: web::Data<AppState>) -> 
     );
 
     match app_state.tera.render("error.html", &context) {
-        Ok(html) => HttpResponse::Ok().body(html),
+        Ok(html) => HttpResponse::Ok()
+            .content_type(ContentType::html())
+            .body(html),
         Err(err) => ErrorResponse::handle_error(&req, &err),
     }
 }

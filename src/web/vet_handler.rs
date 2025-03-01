@@ -3,7 +3,7 @@ use crate::{
     model::{error_response::ErrorResponse, page::Page},
     AppState,
 };
-use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
+use actix_web::{get, http::header::ContentType, web, HttpRequest, HttpResponse, Responder};
 use quick_xml::se::to_string;
 use sea_orm::{
     ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder,
@@ -151,7 +151,9 @@ pub async fn show_vet_list(
     context.insert("current_menu", "vets");
 
     match app_state.tera.render("vet/vet-list.html", &context) {
-        Ok(html) => HttpResponse::Ok().body(html),
+        Ok(html) => HttpResponse::Ok()
+            .content_type(ContentType::html())
+            .body(html),
         Err(err) => ErrorResponse::handle_error(&req, &err),
     }
 }
