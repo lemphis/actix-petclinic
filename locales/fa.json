@@ -1,0 +1,9 @@
+{
+  "welcome": "خوش آمدید",
+  "required": "الزامی",
+  "notFound": "یافت نشد",
+  "duplicate": "قبلا استفاده شده",
+  "typeMismatch": {
+    "birthDate": "تاریخ تولد نامعتبر"
+  }
+}

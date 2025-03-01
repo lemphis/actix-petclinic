@@ -1,0 +1,9 @@
+{
+  "welcome": "Welcome",
+  "required": "is required",
+  "notFound": "has not been found",
+  "duplicate": "is already in use",
+  "typeMismatch": {
+    "birthDate": "invalid date"
+  }
+}

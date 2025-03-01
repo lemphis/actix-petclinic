@@ -1,0 +1,9 @@
+{
+  "welcome": "hoş geldiniz",
+  "required": "gerekli",
+  "notFound": "bulunamadı",
+  "duplicate": "zaten kullanılıyor",
+  "typeMismatch": {
+    "birthDate": "geçersiz tarih"
+  }
+}

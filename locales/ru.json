@@ -1,0 +1,9 @@
+{
+  "welcome": "Добро пожаловать",
+  "required": "необходимо",
+  "notFound": "не найдено",
+  "duplicate": "уже используется",
+  "typeMismatch": {
+    "birthDate": "неправильная дата"
+  }
+}
