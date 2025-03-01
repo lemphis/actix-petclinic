@@ -2,7 +2,7 @@
 <li class="nav-item">
   <a
     class="{% if active == current_menu %}nav-link active{% else %}nav-link{% endif %}"
-    href="{{ link }}"
+    href="{{ link | safe }}"
     title="{{ title }}"
   >
     <span class="fa fa-{{ glyph }}"></span>
