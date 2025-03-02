@@ -19,3 +19,4 @@ dotenvy = "0.15"
 chrono = "0.4"
 quick-xml = { version = "0.37", features = ["serialize"] }
 tera = "1.20"
+thiserror = "2"
