@@ -1,0 +1,84 @@
+{% extends "fragments/layout.html" %}
+{% block content %}
+<h2>Owner Information</h2>
+
+<table class="table table-striped">
+  <tbody>
+    <tr>
+      <th>Name</th>
+      <td><b>{{ owner.first_name }} {{ owner.last_name }}</b></td>
+    </tr>
+    <tr>
+      <th>Address</th>
+      <td>{{ owner.address }}</td>
+    </tr>
+    <tr>
+      <th>City</th>
+      <td>{{ owner.city }}</td>
+    </tr>
+    <tr>
+      <th>Telephone</th>
+      <td>{{ owner.telephone }}</td>
+    </tr>
+  </tbody>
+</table>
+
+<a href="{{ owner.id }}/edit" class="btn btn-primary">Edit Owner</a>
+<a href="{{ owner.id }}/pets/new" class="btn btn-primary">Add New Pet</a>
+
+<br />
+<br />
+<br />
+<h2>Pets and Visits</h2>
+
+<table class="table table-striped">
+  <tbody>
+    {% for pet in pets %}
+    <tr>
+      <td valign="top">
+        <dl class="dl-horizontal">
+          <dt>Name</dt>
+          <dd>{{ pet.0.name }}</dd>
+          <dt>Birth Date</dt>
+          <dd>{{ pet.0.birth_date }}</dd>
+          <dt>Type</dt>
+          <dd>{{ pet.1.name }}</dd>
+        </dl>
+      </td>
+      <td valign="top">
+        <table class="table-condensed">
+          <thead>
+            <tr>
+              <th>Visit Date</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <a href="{{ owner.id }}/pets/{{ pet.0.id }}/edit">Edit Pet</a>
+              </td>
+              <td>
+                <a href="{{ owner.id }}/pets/{{ pet.0.id }}/visits/new"
+                  >Add Visit</a
+                >
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<script>
+  function hideMessages() {
+    setTimeout(function () {
+      document.getElementById("success-message").style.display = "none";
+      document.getElementById("error-message").style.display = "none";
+    }, 3000);
+  }
+
+  hideMessages();
+</script>
+{% endblock content %}
