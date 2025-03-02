@@ -1,4 +1,7 @@
-use actix_web::web::ServiceConfig;
+use actix_web::{http::header::ContentType, web::ServiceConfig, HttpRequest, HttpResponse};
+use tera::{Context, Tera};
+
+use crate::model::error_response::ErrorResponse;
 
 pub mod error_handler;
 pub mod owner_handler;
@@ -11,4 +14,18 @@ pub fn configure_route(cfg: &mut ServiceConfig) {
         .service(vet_handler::show_vet_list)
         .service(owner_handler::show_owner)
         .service(error_handler::trigger_error);
+}
+
+pub fn render(
+    req: HttpRequest,
+    tera: &Tera,
+    template_name: &str,
+    context: Context,
+) -> HttpResponse {
+    match tera.render(template_name, &context) {
+        Ok(html) => HttpResponse::Ok()
+            .content_type(ContentType::html())
+            .body(html),
+        Err(err) => ErrorResponse::handle_error(&req, &err),
+    }
 }

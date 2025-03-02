@@ -1,7 +1,7 @@
-use actix_web::{get, http::header::ContentType, web, HttpRequest, HttpResponse, Responder};
+use actix_web::{get, web, HttpRequest, Responder};
 use tera::Context;
 
-use crate::{model::error_response::ErrorResponse, AppState};
+use crate::{web::render, AppState};
 
 #[get("/oups")]
 pub async fn trigger_error(req: HttpRequest, app_state: web::Data<AppState>) -> impl Responder {
@@ -12,10 +12,5 @@ pub async fn trigger_error(req: HttpRequest, app_state: web::Data<AppState>) -> 
         "Expected: handler used to showcase what happens when an error is propagated",
     );
 
-    match app_state.tera.render("error.html", &context) {
-        Ok(html) => HttpResponse::Ok()
-            .content_type(ContentType::html())
-            .body(html),
-        Err(err) => ErrorResponse::handle_error(&req, &err),
-    }
+    render(req, &app_state.tera, "error.html", context)
 }

@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
-use actix_web::{get, http::header::ContentType, web, HttpRequest, HttpResponse, Responder};
+use actix_web::{get, web, HttpRequest, Responder};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use tera::Context;
 
 use crate::{
     domain::owner::{owners, pet, types},
     model::{app_error::AppError, error_response::ErrorResponse},
+    web::render,
     AppState,
 };
 
@@ -60,10 +61,5 @@ pub async fn show_owner(
     context.insert("pets", &pets_with_type);
     context.insert("current_menu", "owners");
 
-    match app_state.tera.render("owner/owner-details.html", &context) {
-        Ok(html) => HttpResponse::Ok()
-            .content_type(ContentType::html())
-            .body(html),
-        Err(err) => ErrorResponse::handle_error(&req, &err),
-    }
+    render(req, &app_state.tera, "owner/owner-details.html", context)
 }
