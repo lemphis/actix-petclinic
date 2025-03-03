@@ -1,0 +1,19 @@
+{% extends "fragments/layout.html" %}
+{% import "fragments/input-field.html" as input %}
+{% block content %}
+<h2>Owner</h2>
+<form class="form-horizontal" id="add-owner-form" method="post">
+  <div class="form-group has-feedback">
+    {{ input::input(label="First Name", name="first_name", type="text", before_value=owner.first_name | default(value=""), errors=errors["first_name"] | default(value="")) }}
+    {{ input::input(label="Last Name", name="last_name", type="text", before_value=owner.last_name | default(value=""), errors=errors["last_name"] | default(value="")) }}
+    {{ input::input(label="Address", name="address", type="text", before_value=owner.address | default(value=""), errors=errors["address"] | default(value="")) }}
+    {{ input::input(label="City", name="city", type="text", before_value=owner.city | default(value=""), errors=errors["city"] | default(value="")) }}
+    {{ input::input(label="Telephone", name="telephone", type="text", before_value=owner.telephone | default(value=""), errors=errors["telephone"] | default(value="")) }}
+  </div>
+  <div class="form-group">
+    <div class="col-sm-offset-2 col-sm-10">
+      <button class="btn btn-primary" type="submit">Add Owner</button>
+    </div>
+  </div>
+</form>
+{% endblock content %}
