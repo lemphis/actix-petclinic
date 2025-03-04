@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use actix_web::{get, web, HttpRequest, Responder};
+use actix_web_flash_messages::{IncomingFlashMessages, Level};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use tera::Context;
 
@@ -16,6 +17,7 @@ pub async fn show_owner(
     req: HttpRequest,
     app_state: web::Data<AppState>,
     path: web::Path<u32>,
+    messages: IncomingFlashMessages,
 ) -> impl Responder {
     let owner_id = path.into_inner();
     let conn = &app_state.conn;
@@ -44,22 +46,39 @@ pub async fn show_owner(
         Ok(data) => data,
         Err(db_err) => return ErrorResponse::handle_error(&req, &db_err),
     };
-    let pet_types_map: HashMap<u32, types::Model> =
-        pet_types.into_iter().map(|pt| (pt.id, pt)).collect();
-    let mut pets_with_type: Vec<(pet::Model, types::Model)> = pets
-        .into_iter()
-        .filter_map(|pet| {
-            pet_types_map
-                .get(&pet.type_id)
-                .map(|pet_type| (pet, pet_type.clone()))
-        })
-        .collect();
-    pets_with_type.sort_by(|(pet_a, _), (pet_b, _)| pet_a.name.cmp(&pet_b.name));
+
+    let pets_with_type = join_pets_with_types(pets, pet_types);
+
+    let message = messages
+        .iter()
+        .find(|flash_message| flash_message.level() == Level::Info)
+        .map(|flash_message| flash_message.content());
+    let error = messages
+        .iter()
+        .find(|flash_message| flash_message.level() == Level::Error)
+        .map(|flash_message| flash_message.content());
 
     let mut context = Context::new();
     context.insert("owner", &owner);
     context.insert("pets", &pets_with_type);
+    context.insert("message", &message);
+    context.insert("error", &error);
     context.insert("current_menu", "owners");
 
     render(req, &app_state.tera, "owner/owner-details.html", context)
+}
+
+fn join_pets_with_types(
+    pets: Vec<pet::Model>,
+    pet_types: Vec<types::Model>,
+) -> Vec<(pet::Model, types::Model)> {
+    let type_map: HashMap<u32, types::Model> = pet_types.into_iter().map(|t| (t.id, t)).collect();
+
+    let mut joined_pets: Vec<_> = pets
+        .into_iter()
+        .filter_map(|pet| type_map.get(&pet.type_id).map(|t| (pet, t.clone())))
+        .collect();
+
+    joined_pets.sort_by(|(a, _), (b, _)| a.name.cmp(&b.name));
+    joined_pets
 }
