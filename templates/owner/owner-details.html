@@ -2,6 +2,18 @@
 {% block content %}
 <h2>Owner Information</h2>
 
+{% if message %}
+<div class="alert alert-success" id="success-message">
+  <span>{{ message }}</span>
+</div>
+{% endif %}
+
+{% if error %}
+<div class="alert alert-danger" id="error-message">
+  <span>{{ error }}</span>
+</div>
+{% endif %}
+
 <table class="table table-striped">
   <tbody>
     <tr>
@@ -59,9 +71,7 @@
                 <a href="{{ owner.id }}/pets/{{ pet.0.id }}/edit">Edit Pet</a>
               </td>
               <td>
-                <a href="{{ owner.id }}/pets/{{ pet.0.id }}/visits/new"
-                  >Add Visit</a
-                >
+                <a href="{{ owner.id }}/pets/{{ pet.0.id }}/visits/new">Add Visit</a>
               </td>
             </tr>
           </tbody>
