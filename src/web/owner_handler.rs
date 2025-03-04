@@ -82,3 +82,19 @@ fn join_pets_with_types(
     joined_pets.sort_by(|(a, _), (b, _)| a.name.cmp(&b.name));
     joined_pets
 }
+
+#[get("/owners/new")]
+pub async fn init_creation_form(
+    req: HttpRequest,
+    app_state: web::Data<AppState>,
+) -> impl Responder {
+    let mut context = Context::new();
+    context.insert("current_menu", "owners");
+
+    render(
+        req,
+        &app_state.tera,
+        "owner/create-or-update-owner-form.html",
+        context,
+    )
+}
