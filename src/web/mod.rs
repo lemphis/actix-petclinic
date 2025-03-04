@@ -14,6 +14,7 @@ pub fn configure_route(cfg: &mut ServiceConfig) {
         .service(vet_handler::show_vet_list)
         .service(owner_handler::show_owner)
         .service(owner_handler::init_creation_form)
+        .service(owner_handler::process_creation_form)
         .service(error_handler::trigger_error);
 }
 
