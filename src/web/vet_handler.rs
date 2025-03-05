@@ -37,13 +37,13 @@ pub async fn show_resources_vet_list(
 ) -> impl Responder {
     let vet_list = match fetch_all_vet_specialties(&app_state.conn).await {
         Ok(vets) => vets,
-        Err(db_err) => return ErrorResponse::handle_error(&req, &db_err),
+        Err(db_err) => return ErrorResponse::handle_error(&req, Box::new(db_err)),
     };
 
     let response = ShowResourcesVetListResponse { vet_list };
     match to_string(&response) {
         Ok(xml) => HttpResponse::Ok().content_type("application/xml").body(xml),
-        Err(err) => ErrorResponse::handle_error(&req, &err),
+        Err(err) => ErrorResponse::handle_error(&req, Box::new(err)),
     }
 }
 
@@ -138,7 +138,7 @@ pub async fn show_vet_list(
         fetch_vet_total_count(conn)
     ) {
         Ok((vets, count)) => (vets, count),
-        Err(db_err) => return ErrorResponse::handle_error(&req, &db_err),
+        Err(db_err) => return ErrorResponse::handle_error(&req, Box::new(db_err)),
     };
 
     let page = Page::new(cur_page, vet_total_count);

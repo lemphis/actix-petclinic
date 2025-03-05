@@ -1,8 +1,8 @@
 use actix_web::{HttpRequest, HttpResponse};
 use chrono::Local;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ErrorResponse {
     message: String,
     path: String,
@@ -18,15 +18,15 @@ impl ErrorResponse {
         }
     }
 
-    pub fn handle_error(req: &HttpRequest, err: &dyn std::error::Error) -> HttpResponse {
-        HttpResponse::InternalServerError()
-            .json(ErrorResponse::new(err.to_string(), req.uri().to_string()))
+    pub fn handle_error(req: &HttpRequest, err: Box<dyn std::error::Error>) -> HttpResponse {
+        let error_response = ErrorResponse::new(err.to_string(), req.uri().to_string());
+        HttpResponse::InternalServerError().json(error_response)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use actix_web::{http::StatusCode, test};
+    use actix_web::{body::to_bytes, http::StatusCode, test};
     use sea_orm::{RuntimeErr, SqlxError};
 
     use super::ErrorResponse;
@@ -38,10 +38,13 @@ mod tests {
             String::from(column_name),
         )));
         let req = test::TestRequest::get().uri("/vets").to_http_request();
-        let res = ErrorResponse::handle_error(&req, &db_err);
+        let res = ErrorResponse::handle_error(&req, Box::new(db_err));
         assert_eq!(res.status(), StatusCode::INTERNAL_SERVER_ERROR);
+
+        let body_bytes = to_bytes(res.into_body()).await.unwrap();
+        let body_json: ErrorResponse = serde_json::from_slice(&body_bytes).unwrap();
         assert_eq!(
-            db_err.to_string(),
+            body_json.message,
             format!("Query Error: no column found for name: {column_name}")
         );
     }

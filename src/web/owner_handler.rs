@@ -37,13 +37,13 @@ pub async fn show_owner(
         .await
     {
         Ok(data) => data,
-        Err(db_err) => return ErrorResponse::handle_error(&req, &db_err),
+        Err(db_err) => return ErrorResponse::handle_error(&req, Box::new(db_err)),
     };
 
     let (owner, pets) = if let Some(record) = owner_with_pets.into_iter().next() {
         record
     } else {
-        return ErrorResponse::handle_error(&req, &AppError::OwnerNotFound(owner_id));
+        return ErrorResponse::handle_error(&req, Box::new(AppError::OwnerNotFound(owner_id)));
     };
 
     let pet_type_ids: Vec<u32> = pets.iter().map(|p| p.type_id).collect();
@@ -53,7 +53,7 @@ pub async fn show_owner(
         .await
     {
         Ok(data) => data,
-        Err(db_err) => return ErrorResponse::handle_error(&req, &db_err),
+        Err(db_err) => return ErrorResponse::handle_error(&req, Box::new(db_err)),
     };
 
     let pets_with_type = join_pets_with_types(pets, pet_types);
@@ -171,7 +171,7 @@ pub async fn process_creation_form(
         .await
     {
         Ok(result) => result,
-        Err(db_err) => return ErrorResponse::handle_error(&req, &db_err),
+        Err(db_err) => return ErrorResponse::handle_error(&req, Box::new(db_err)),
     };
 
     FlashMessage::info("New Owner Created").send();

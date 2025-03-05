@@ -28,6 +28,6 @@ pub fn render(
         Ok(html) => HttpResponse::Ok()
             .content_type(ContentType::html())
             .body(html),
-        Err(err) => ErrorResponse::handle_error(&req, &err),
+        Err(err) => ErrorResponse::handle_error(&req, Box::new(err)),
     }
 }
