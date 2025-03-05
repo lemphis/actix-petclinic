@@ -2,15 +2,15 @@
 {% block content %}
 <h2>Owner Information</h2>
 
-{% if message %}
+{% if success_message %}
 <div class="alert alert-success" id="success-message">
-  <span>{{ message }}</span>
+  <span>{{ success_message }}</span>
 </div>
 {% endif %}
 
-{% if error %}
+{% if error_message %}
 <div class="alert alert-danger" id="error-message">
-  <span>{{ error }}</span>
+  <span>{{ error_message }}</span>
 </div>
 {% endif %}
 

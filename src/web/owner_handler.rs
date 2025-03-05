@@ -36,23 +36,28 @@ pub async fn show_owner(
         Err(err) => return ErrorResponse::handle_error(&req, err),
     };
 
-    let message = messages
-        .iter()
-        .find(|flash_message| flash_message.level() == Level::Info)
-        .map(|flash_message| flash_message.content());
-    let error = messages
-        .iter()
-        .find(|flash_message| flash_message.level() == Level::Error)
-        .map(|flash_message| flash_message.content());
+    let (success_message, error_message) = extract_flash_messages(&messages);
 
     let mut context = Context::new();
     context.insert("owner", &owner);
     context.insert("pets", &pets_with_type);
-    context.insert("message", &message);
-    context.insert("error", &error);
+    context.insert("success_message", &success_message);
+    context.insert("error_message", &error_message);
     context.insert("current_menu", "owners");
 
     render(req, &app_state.tera, "owner/owner-details.html", context)
+}
+
+fn extract_flash_messages(messages: &IncomingFlashMessages) -> (Option<&str>, Option<&str>) {
+    let success_message = messages
+        .iter()
+        .find(|m| m.level() == Level::Info)
+        .map(|m| m.content());
+    let error_message = messages
+        .iter()
+        .find(|m| m.level() == Level::Error)
+        .map(|m| m.content());
+    (success_message, error_message)
 }
 
 async fn fetch_owner_with_pets(
