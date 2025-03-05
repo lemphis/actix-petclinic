@@ -31,32 +31,10 @@ pub async fn show_owner(
     let owner_id = path.into_inner();
     let conn = &app_state.conn;
 
-    let owner_with_pets = match owners::Entity::find_by_id(owner_id)
-        .find_with_related(pet::Entity)
-        .all(conn)
-        .await
-    {
+    let (owner, pets_with_type) = match fetch_owner_with_pets(conn, owner_id).await {
         Ok(data) => data,
-        Err(db_err) => return ErrorResponse::handle_error(&req, Box::new(db_err)),
+        Err(err) => return ErrorResponse::handle_error(&req, err),
     };
-
-    let (owner, pets) = if let Some(record) = owner_with_pets.into_iter().next() {
-        record
-    } else {
-        return ErrorResponse::handle_error(&req, Box::new(AppError::OwnerNotFound(owner_id)));
-    };
-
-    let pet_type_ids: Vec<u32> = pets.iter().map(|p| p.type_id).collect();
-    let pet_types = match types::Entity::find()
-        .filter(types::Column::Id.is_in(pet_type_ids))
-        .all(conn)
-        .await
-    {
-        Ok(data) => data,
-        Err(db_err) => return ErrorResponse::handle_error(&req, Box::new(db_err)),
-    };
-
-    let pets_with_type = join_pets_with_types(pets, pet_types);
 
     let message = messages
         .iter()
@@ -75,6 +53,30 @@ pub async fn show_owner(
     context.insert("current_menu", "owners");
 
     render(req, &app_state.tera, "owner/owner-details.html", context)
+}
+
+async fn fetch_owner_with_pets(
+    conn: &sea_orm::DatabaseConnection,
+    owner_id: u32,
+) -> Result<(owners::Model, Vec<(pet::Model, types::Model)>), Box<dyn std::error::Error>> {
+    let owner_with_pets = owners::Entity::find_by_id(owner_id)
+        .find_with_related(pet::Entity)
+        .all(conn)
+        .await?;
+
+    let (owner, pets) = owner_with_pets
+        .into_iter()
+        .next()
+        .ok_or(AppError::OwnerNotFound(owner_id))?;
+
+    let pet_type_ids: Vec<u32> = pets.iter().map(|p| p.type_id).collect();
+    let pet_types = types::Entity::find()
+        .filter(types::Column::Id.is_in(pet_type_ids))
+        .all(conn)
+        .await?;
+
+    let pets_with_type = join_pets_with_types(pets, pet_types);
+    Ok((owner, pets_with_type))
 }
 
 fn join_pets_with_types(
