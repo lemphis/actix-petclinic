@@ -1,7 +1,7 @@
-use actix_web::{http::header::ContentType, web::ServiceConfig, HttpRequest, HttpResponse};
+use actix_web::{http::header::ContentType, web::ServiceConfig, HttpResponse};
 use tera::{Context, Tera};
 
-use crate::model::error_response::ErrorResponse;
+use crate::model::app_error::AppError;
 
 pub mod error_handler;
 pub mod owner_handler;
@@ -19,15 +19,14 @@ pub fn configure_route(cfg: &mut ServiceConfig) {
 }
 
 pub fn render(
-    req: HttpRequest,
     tera: &Tera,
     template_name: &str,
     context: Context,
-) -> HttpResponse {
-    match tera.render(template_name, &context) {
-        Ok(html) => HttpResponse::Ok()
-            .content_type(ContentType::html())
-            .body(html),
-        Err(err) => ErrorResponse::handle_error(&req, Box::new(err)),
-    }
+) -> Result<HttpResponse, AppError> {
+    let html = tera.render(template_name, &context)?;
+    let res = HttpResponse::Ok()
+        .content_type(ContentType::html())
+        .body(html);
+
+    Ok(res)
 }

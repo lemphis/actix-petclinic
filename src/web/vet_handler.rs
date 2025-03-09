@@ -1,11 +1,10 @@
 use crate::{
     domain::veterinarian::{specialty, vet, vet_specialty},
-    model::{error_response::ErrorResponse, page::Page},
+    model::{app_error::AppError, page::Page},
     web::render,
     AppState,
 };
-use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
-use quick_xml::se::to_string;
+use actix_web::{get, web, HttpResponse};
 use sea_orm::{
     ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder,
 };
@@ -32,19 +31,15 @@ struct Vet {
 
 #[get("/vets")]
 pub async fn show_resources_vet_list(
-    req: HttpRequest,
     app_state: web::Data<AppState>,
-) -> impl Responder {
-    let vet_list = match fetch_all_vet_specialties(&app_state.conn).await {
-        Ok(vets) => vets,
-        Err(db_err) => return ErrorResponse::handle_error(&req, Box::new(db_err)),
-    };
+) -> Result<HttpResponse, AppError> {
+    let vet_list = fetch_all_vet_specialties(&app_state.conn).await?;
 
     let response = ShowResourcesVetListResponse { vet_list };
-    match to_string(&response) {
-        Ok(xml) => HttpResponse::Ok().content_type("application/xml").body(xml),
-        Err(err) => ErrorResponse::handle_error(&req, Box::new(err)),
-    }
+    let xml = quick_xml::se::to_string(&response)?;
+    let res = HttpResponse::Ok().content_type("application/xml").body(xml);
+
+    Ok(res)
 }
 
 async fn fetch_all_vet_specialties(conn: &DatabaseConnection) -> Result<Vec<Vet>, sea_orm::DbErr> {
@@ -127,19 +122,15 @@ struct ShowVetListQuery {
 
 #[get("/vets.html")]
 pub async fn show_vet_list(
-    req: HttpRequest,
     app_state: web::Data<AppState>,
     query: web::Query<ShowVetListQuery>,
-) -> impl Responder {
+) -> Result<HttpResponse, AppError> {
     let conn = &app_state.conn;
     let (cur_page, size) = (query.page.unwrap_or(1), query.size.unwrap_or(5));
-    let (vet_list, vet_total_count) = match tokio::try_join!(
+    let (vet_list, vet_total_count) = tokio::try_join!(
         fetch_vet_specialties_with_pagination(conn, cur_page, size),
         fetch_vet_total_count(conn)
-    ) {
-        Ok((vets, count)) => (vets, count),
-        Err(db_err) => return ErrorResponse::handle_error(&req, Box::new(db_err)),
-    };
+    )?;
 
     let page = Page::new(cur_page, vet_total_count);
     let mut context = Context::new();
@@ -151,7 +142,9 @@ pub async fn show_vet_list(
     context.insert("page_range", page.page_range());
     context.insert("current_menu", "vets");
 
-    render(req, &app_state.tera, "vet/vet-list.html", context)
+    let res = render(&app_state.tera, "vet/vet-list.html", context)?;
+
+    Ok(res)
 }
 
 async fn fetch_vet_specialties_with_pagination(

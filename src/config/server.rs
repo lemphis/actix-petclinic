@@ -3,7 +3,7 @@ use actix_files::Files;
 use actix_web::{
     cookie::Key,
     dev::ServiceResponse,
-    middleware::{self, ErrorHandlerResponse},
+    middleware::{self, ErrorHandlerResponse, ErrorHandlers},
     web::Data,
     App, Error, HttpResponse, HttpServer, Result,
 };
@@ -21,6 +21,7 @@ pub async fn start_server(app_state: AppState) -> std::io::Result<()> {
             .wrap(middleware::NormalizePath::trim())
             .wrap(middleware::Compress::default())
             .wrap(message_framework.clone())
+            .wrap(ErrorHandlers::new().default_handler(error_handler))
             .service(Files::new("/static", "./static").show_files_listing())
             .configure(web::configure_route)
     })
@@ -30,14 +31,17 @@ pub async fn start_server(app_state: AppState) -> std::io::Result<()> {
 }
 
 fn error_handler<B>(res: ServiceResponse<B>) -> Result<ErrorHandlerResponse<B>> {
+    if res.response().headers().contains_key("App-Error") {
+        return Ok(ErrorHandlerResponse::Response(res.map_into_left_body()));
+    }
+
     let error_message = res
         .response()
         .error()
         .map(Error::to_string)
         .unwrap_or_else(|| format!("HTTP {}", res.status()));
-    let path = res.request().uri().path().to_owned();
 
-    let error_response = ErrorResponse::new(error_message, path);
+    let error_response = ErrorResponse::new(error_message);
 
     let new_response = HttpResponse::build(res.status())
         .content_type("application/json")

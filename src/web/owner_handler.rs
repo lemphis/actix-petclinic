@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::LazyLock};
 use actix_web::{
     get,
     http::{self},
-    post, web, HttpRequest, HttpResponse, Responder,
+    post, web, HttpResponse,
 };
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages, Level};
 use regex::Regex;
@@ -14,7 +14,7 @@ use validator::Validate;
 
 use crate::{
     domain::owner::{owners, pet, types},
-    model::{app_error::AppError, error_response::ErrorResponse},
+    model::app_error::AppError,
     web::render,
     AppState,
 };
@@ -23,18 +23,14 @@ static PHONE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\d{10}$").u
 
 #[get("/owners/{id:\\d+}")]
 pub async fn show_owner(
-    req: HttpRequest,
     app_state: web::Data<AppState>,
     path: web::Path<u32>,
     messages: IncomingFlashMessages,
-) -> impl Responder {
+) -> Result<HttpResponse, AppError> {
     let owner_id = path.into_inner();
     let conn = &app_state.conn;
 
-    let (owner, pets_with_type) = match fetch_owner_with_pets(conn, owner_id).await {
-        Ok(data) => data,
-        Err(err) => return ErrorResponse::handle_error(&req, err),
-    };
+    let (owner, pets_with_type) = fetch_owner_with_pets(conn, owner_id).await?;
 
     let (success_message, error_message) = extract_flash_messages(&messages);
 
@@ -45,7 +41,9 @@ pub async fn show_owner(
     context.insert("error_message", &error_message);
     context.insert("current_menu", "owners");
 
-    render(req, &app_state.tera, "owner/owner-details.html", context)
+    let res = render(&app_state.tera, "owner/owner-details.html", context)?;
+
+    Ok(res)
 }
 
 fn extract_flash_messages(messages: &IncomingFlashMessages) -> (Option<&str>, Option<&str>) {
@@ -63,7 +61,7 @@ fn extract_flash_messages(messages: &IncomingFlashMessages) -> (Option<&str>, Op
 async fn fetch_owner_with_pets(
     conn: &sea_orm::DatabaseConnection,
     owner_id: u32,
-) -> Result<(owners::Model, Vec<(pet::Model, types::Model)>), Box<dyn std::error::Error>> {
+) -> Result<(owners::Model, Vec<(pet::Model, types::Model)>), AppError> {
     let owner_with_pets = owners::Entity::find_by_id(owner_id)
         .find_with_related(pet::Entity)
         .all(conn)
@@ -100,19 +98,17 @@ fn join_pets_with_types(
 }
 
 #[get("/owners/new")]
-pub async fn init_creation_form(
-    req: HttpRequest,
-    app_state: web::Data<AppState>,
-) -> impl Responder {
+pub async fn init_creation_form(app_state: web::Data<AppState>) -> Result<HttpResponse, AppError> {
     let mut context = Context::new();
     context.insert("current_menu", "owners");
 
-    render(
-        req,
+    let res = render(
         &app_state.tera,
         "owner/create-or-update-owner-form.html",
         context,
-    )
+    )?;
+
+    Ok(res)
 }
 
 #[derive(Debug, Serialize, Deserialize, Validate)]
@@ -132,10 +128,9 @@ struct CreateNewOwnerRequestForm {
 
 #[post("/owners/new")]
 pub async fn process_creation_form(
-    req: HttpRequest,
     app_state: web::Data<AppState>,
     form: web::Form<CreateNewOwnerRequestForm>,
-) -> impl Responder {
+) -> Result<HttpResponse, AppError> {
     let owner = form.into_inner();
 
     if let Err(errors) = owner.validate() {
@@ -157,8 +152,8 @@ pub async fn process_creation_form(
         context.insert("current_menu", "owners");
         context.insert("owner", &owner);
         context.insert("errors", &errors_map);
+
         return render(
-            req,
             &app_state.tera,
             "owner/create-or-update-owner-form.html",
             context,
@@ -173,17 +168,15 @@ pub async fn process_creation_form(
         telephone: ActiveValue::Set(Some(owner.telephone)),
         ..Default::default()
     };
-    let insert_result = match owners::Entity::insert(new_owner.clone())
+    let insert_result = owners::Entity::insert(new_owner.clone())
         .exec(&app_state.conn)
-        .await
-    {
-        Ok(result) => result,
-        Err(db_err) => return ErrorResponse::handle_error(&req, Box::new(db_err)),
-    };
+        .await?;
 
     FlashMessage::info("New Owner Created").send();
     let redirect_url = format!("/owners/{}", insert_result.last_insert_id);
-    HttpResponse::Found()
+    let res = HttpResponse::Found()
         .append_header((http::header::LOCATION, redirect_url))
-        .finish()
+        .finish();
+
+    Ok(res)
 }
