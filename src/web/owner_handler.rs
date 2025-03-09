@@ -34,14 +34,14 @@ pub async fn show_owner(
 
     let (success_message, error_message) = extract_flash_messages(&messages);
 
-    let mut context = Context::new();
-    context.insert("owner", &owner);
-    context.insert("pets", &pets_with_type);
-    context.insert("success_message", &success_message);
-    context.insert("error_message", &error_message);
-    context.insert("current_menu", "owners");
+    let mut ctx = Context::new();
+    ctx.insert("owner", &owner);
+    ctx.insert("pets", &pets_with_type);
+    ctx.insert("success_message", &success_message);
+    ctx.insert("error_message", &error_message);
+    ctx.insert("current_menu", "owners");
 
-    let res = render(&app_state.tera, "owner/owner-details.html", context)?;
+    let res = render(&app_state.tera, "owner/owner-details.html", ctx)?;
 
     Ok(res)
 }
@@ -99,13 +99,13 @@ fn join_pets_with_types(
 
 #[get("/owners/new")]
 pub async fn init_creation_form(app_state: web::Data<AppState>) -> Result<HttpResponse, AppError> {
-    let mut context = Context::new();
-    context.insert("current_menu", "owners");
+    let mut ctx = Context::new();
+    ctx.insert("current_menu", "owners");
 
     let res = render(
         &app_state.tera,
         "owner/create-or-update-owner-form.html",
-        context,
+        ctx,
     )?;
 
     Ok(res)
@@ -148,15 +148,15 @@ pub async fn process_creation_form(
             errors_map.insert(field.to_string(), msgs);
         }
 
-        let mut context = Context::new();
-        context.insert("current_menu", "owners");
-        context.insert("owner", &owner);
-        context.insert("errors", &errors_map);
+        let mut ctx = Context::new();
+        ctx.insert("current_menu", "owners");
+        ctx.insert("owner", &owner);
+        ctx.insert("errors", &errors_map);
 
         return render(
             &app_state.tera,
             "owner/create-or-update-owner-form.html",
-            context,
+            ctx,
         );
     }
 

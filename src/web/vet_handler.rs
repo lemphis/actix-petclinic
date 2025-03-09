@@ -133,16 +133,16 @@ pub async fn show_vet_list(
     )?;
 
     let page = Page::new(cur_page, vet_total_count);
-    let mut context = Context::new();
-    context.insert("vets", &vet_list);
-    context.insert("page", &cur_page);
-    context.insert("total_pages", &page.total_pages());
-    context.insert("has_previous", &page.has_previous());
-    context.insert("has_next", &page.has_next());
-    context.insert("page_range", page.page_range());
-    context.insert("current_menu", "vets");
+    let mut ctx = Context::new();
+    ctx.insert("vets", &vet_list);
+    ctx.insert("page", &cur_page);
+    ctx.insert("total_pages", &page.total_pages());
+    ctx.insert("has_previous", &page.has_previous());
+    ctx.insert("has_next", &page.has_next());
+    ctx.insert("page_range", page.page_range());
+    ctx.insert("current_menu", "vets");
 
-    let res = render(&app_state.tera, "vet/vet-list.html", context)?;
+    let res = render(&app_state.tera, "vet/vet-list.html", ctx)?;
 
     Ok(res)
 }
