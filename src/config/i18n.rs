@@ -3,7 +3,8 @@ use std::{collections::HashMap, fs, path::Path};
 use actix_web::{http::header, HttpRequest};
 use serde_json::Value;
 
-const ALLOWED_LANGUAGES: &[&str] = &["en", "ko", "de", "es", "fa", "pt", "ru", "tr"];
+const DEFAULT_LANGUAGE: &str = "en";
+const ALLOWED_LANGUAGES: &[&str] = &[DEFAULT_LANGUAGE, "ko", "de", "es", "fa", "pt", "ru", "tr"];
 
 #[derive(Clone)]
 pub struct I18n {
@@ -32,6 +33,7 @@ impl I18n {
                 }
             }
         }
+
         Ok(all_translations)
     }
 
@@ -41,6 +43,7 @@ impl I18n {
         let path = path.as_ref();
         let content = fs::read_to_string(path)?;
         let translations = serde_json::from_str(&content)?;
+
         Ok(translations)
     }
 
@@ -52,13 +55,16 @@ impl I18n {
 
         let preferred_language = Self::get_preferred_language(accept_language);
 
+        // load_all_translations 연관 함수에 의해 translations 가 초기화되고,
+        // preferred_language 는 적절한 language 를 찾지 못하더라도 "en" 을 return 하므로,
+        // None 이 아님이 보장됨
         self.translations.get(&preferred_language).unwrap()
     }
 
     fn get_preferred_language(header: Option<&str>) -> String {
         let header = match header {
             Some(h) if !h.trim().is_empty() => h,
-            _ => return "en".to_string(),
+            _ => return DEFAULT_LANGUAGE.to_string(),
         };
 
         let languages = Self::parse_accept_language(header);
@@ -68,7 +74,7 @@ impl I18n {
             }
         }
 
-        "en".to_string()
+        DEFAULT_LANGUAGE.to_string()
     }
 
     fn parse_accept_language(header: &str) -> Vec<String> {
@@ -94,21 +100,30 @@ impl I18n {
 
 #[cfg(test)]
 mod tests {
-    use super::I18n;
+    use super::*;
 
     #[test]
     fn test_none_header() {
         let none_header = None;
-        assert_eq!(I18n::get_preferred_language(none_header), "en".to_string());
+        assert_eq!(
+            I18n::get_preferred_language(none_header),
+            DEFAULT_LANGUAGE.to_string()
+        );
     }
 
     #[test]
     fn test_empty_header() {
         let empty_header = Some("");
-        assert_eq!(I18n::get_preferred_language(empty_header), "en".to_string());
+        assert_eq!(
+            I18n::get_preferred_language(empty_header),
+            DEFAULT_LANGUAGE.to_string()
+        );
 
         let space_header = Some("   ");
-        assert_eq!(I18n::get_preferred_language(space_header), "en".to_string());
+        assert_eq!(
+            I18n::get_preferred_language(space_header),
+            DEFAULT_LANGUAGE.to_string()
+        );
     }
 
     #[test]
@@ -116,21 +131,22 @@ mod tests {
         let unsupported_language = Some("fr");
         assert_eq!(
             I18n::get_preferred_language(unsupported_language),
-            "en".to_string()
+            DEFAULT_LANGUAGE.to_string()
         );
     }
 
     #[test]
     fn test_multiple_languages() {
         let accept_language_header = Some("ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7");
-        let preferred_language = I18n::get_preferred_language(accept_language_header);
-        assert_eq!(preferred_language, "ko");
+        assert_eq!(I18n::get_preferred_language(accept_language_header), "ko");
     }
 
     #[test]
     fn test_parse_accept_language() {
         let accept_language_header = "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7";
-        let parsed = I18n::parse_accept_language(accept_language_header);
-        assert_eq!(parsed, ["ko-KR", "ko", "en-US", "en"]);
+        assert_eq!(
+            I18n::parse_accept_language(accept_language_header),
+            ["ko-KR", "ko", "en-US", DEFAULT_LANGUAGE]
+        );
     }
 }
