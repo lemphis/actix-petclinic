@@ -9,11 +9,11 @@ pub async fn welcome(
 ) -> Result<HttpResponse, AppError> {
     let translation = app_state.i18n.get(&req);
 
-    let mut context = Context::new();
-    context.insert("current_menu", "home");
-    context.insert("translation", translation);
+    let mut ctx = Context::new();
+    ctx.insert("current_menu", "home");
+    ctx.insert("translation", translation);
 
-    let res = render(&app_state.tera, "welcome.html", context)?;
+    let res = render(&app_state.tera, "welcome.html", ctx)?;
 
     Ok(res)
 }
