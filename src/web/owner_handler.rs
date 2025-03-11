@@ -204,3 +204,57 @@ pub async fn init_find_form(app_state: web::Data<AppState>) -> Result<HttpRespon
 
     render(&app_state.tera, "owner/find-owners.html", ctx)
 }
+
+#[derive(Debug, Serialize, Deserialize, Validate)]
+struct FindOwnerRequestQuery {
+    last_name: Option<String>,
+    page: Option<u64>,
+    size: Option<u64>,
+}
+
+#[get("/owners")]
+pub async fn process_find_form(
+    req: HttpRequest,
+    app_state: web::Data<AppState>,
+    query: web::Query<FindOwnerRequestQuery>,
+) -> Result<HttpResponse, AppError> {
+    let query = query.into_inner();
+    let (last_name, cur_page, size) = (
+        query.last_name.unwrap_or("".to_string()),
+        query.page.unwrap_or(1),
+        query.size.unwrap_or(5),
+    );
+    let conn = &app_state.conn;
+
+    let mut ctx = Context::new();
+    ctx.insert("current_menu", "owners");
+
+    let owner_with_pets = owners::Entity::find()
+        .left_join(pet::Entity)
+        .filter(owners::Column::LastName.like(format!("{last_name}%")))
+        .limit(size)
+        .select_also(pet::Entity)
+        .all(conn)
+        .await?;
+
+    if owner_with_pets.is_empty() {
+        let translation = app_state.i18n.get(&req);
+        ctx.insert("translation", translation);
+        ctx.insert("last_name", &last_name);
+
+        return render(&app_state.tera, "owner/find-owners.html", ctx);
+    }
+
+    if owner_with_pets.len() == 1 {
+        let res = HttpResponse::Found()
+            .append_header((
+                http::header::LOCATION,
+                format!("/owners/{}", owner_with_pets[0].0.id),
+            ))
+            .finish();
+
+        return Ok(res);
+    }
+
+    todo!()
+}
