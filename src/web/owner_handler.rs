@@ -13,7 +13,7 @@ use tera::Context;
 use validator::Validate;
 
 use crate::{
-    domain::owner::{owners, pet, types},
+    domain::owner::{self, owners, pet, types},
     model::app_error::AppError,
     web::render,
     AppState,
@@ -41,21 +41,7 @@ pub async fn show_owner(
     ctx.insert("error_message", &error_message);
     ctx.insert("current_menu", "owners");
 
-    let res = render(&app_state.tera, "owner/owner-details.html", ctx)?;
-
-    Ok(res)
-}
-
-fn extract_flash_messages(messages: &IncomingFlashMessages) -> (Option<&str>, Option<&str>) {
-    let success_message = messages
-        .iter()
-        .find(|m| m.level() == Level::Info)
-        .map(|m| m.content());
-    let error_message = messages
-        .iter()
-        .find(|m| m.level() == Level::Error)
-        .map(|m| m.content());
-    (success_message, error_message)
+    render(&app_state.tera, "owner/owner-details.html", ctx)
 }
 
 async fn fetch_owner_with_pets(
@@ -82,6 +68,7 @@ async fn fetch_owner_with_pets(
         .await?;
 
     let pets_with_type = join_pets_with_types(pets, pet_types);
+
     Ok((owner, pets_with_type))
 }
 
@@ -91,13 +78,28 @@ fn join_pets_with_types(
 ) -> Vec<(pet::Model, types::Model)> {
     let type_map: HashMap<u32, types::Model> = pet_types.into_iter().map(|t| (t.id, t)).collect();
 
-    let mut joined_pets: Vec<_> = pets
+    let mut joined_pets: Vec<(pet::Model, owner::types::Model)> = pets
         .into_iter()
         .filter_map(|pet| type_map.get(&pet.type_id).map(|t| (pet, t.clone())))
         .collect();
 
     joined_pets.sort_by(|(a, _), (b, _)| a.name.cmp(&b.name));
+
     joined_pets
+}
+
+fn extract_flash_messages(messages: &IncomingFlashMessages) -> (Option<&str>, Option<&str>) {
+    let (mut success_message, mut error_message) = (None, None);
+
+    for message in messages.iter() {
+        match message.level() {
+            Level::Info => success_message = Some(message.content()),
+            Level::Error => error_message = Some(message.content()),
+            _ => {}
+        }
+    }
+
+    (success_message, error_message)
 }
 
 #[get("/owners/new")]
@@ -105,17 +107,15 @@ pub async fn init_creation_form(app_state: web::Data<AppState>) -> Result<HttpRe
     let mut ctx = Context::new();
     ctx.insert("current_menu", "owners");
 
-    let res = render(
+    render(
         &app_state.tera,
         "owner/create-or-update-owner-form.html",
         ctx,
-    )?;
-
-    Ok(res)
+    )
 }
 
 #[derive(Debug, Serialize, Deserialize, Validate)]
-struct CreateNewOwnerRequestForm {
+struct CreateOwnerForm {
     #[validate(length(min = 1, message = "공백일 수 없습니다"))]
     first_name: String,
     #[validate(length(min = 1, message = "공백일 수 없습니다"))]
@@ -132,37 +132,57 @@ struct CreateNewOwnerRequestForm {
 #[post("/owners/new")]
 pub async fn process_creation_form(
     app_state: web::Data<AppState>,
-    form: web::Form<CreateNewOwnerRequestForm>,
+    form: web::Form<CreateOwnerForm>,
 ) -> Result<HttpResponse, AppError> {
     let owner = form.into_inner();
 
     if let Err(errors) = owner.validate() {
-        let mut errors_map: HashMap<String, Vec<String>> = HashMap::new();
-        for (field, errors) in errors.field_errors().iter() {
-            let msgs = errors
-                .iter()
-                .map(|e| {
-                    e.message
-                        .clone()
-                        .unwrap_or_else(|| "잘못된 입력".into())
-                        .to_string()
-                })
-                .collect();
-            errors_map.insert(field.to_string(), msgs);
-        }
-
-        let mut ctx = Context::new();
-        ctx.insert("current_menu", "owners");
-        ctx.insert("owner", &owner);
-        ctx.insert("errors", &errors_map);
-
-        return render(
-            &app_state.tera,
-            "owner/create-or-update-owner-form.html",
-            ctx,
-        );
+        return handle_validation_errors(&app_state.tera, owner, errors);
     }
 
+    let last_insert_id = create_owner(&app_state.conn, owner).await?;
+
+    FlashMessage::info("New Owner Created").send();
+    let res = HttpResponse::Found()
+        .append_header((http::header::LOCATION, format!("/owners/{last_insert_id}")))
+        .finish();
+
+    Ok(res)
+}
+
+fn handle_validation_errors(
+    tera: &tera::Tera,
+    owner: CreateOwnerForm,
+    errors: validator::ValidationErrors,
+) -> Result<HttpResponse, AppError> {
+    let mut errors_map: HashMap<String, Vec<String>> = HashMap::new();
+
+    for (field, field_errors) in errors.field_errors().iter() {
+        let error_messages = field_errors
+            .iter()
+            .map(|e| {
+                e.message
+                    .clone()
+                    .unwrap_or_else(|| "잘못된 입력".into())
+                    .to_string()
+            })
+            .collect();
+
+        errors_map.insert(field.to_string(), error_messages);
+    }
+
+    let mut ctx = Context::new();
+    ctx.insert("current_menu", "owners");
+    ctx.insert("owner", &owner);
+    ctx.insert("errors", &errors_map);
+
+    render(tera, "owner/create-or-update-owner-form.html", ctx)
+}
+
+async fn create_owner(
+    conn: &sea_orm::DatabaseConnection,
+    owner: CreateOwnerForm,
+) -> Result<u32, AppError> {
     let new_owner = owners::ActiveModel {
         first_name: ActiveValue::Set(Some(owner.first_name)),
         last_name: ActiveValue::Set(Some(owner.last_name)),
@@ -171,15 +191,8 @@ pub async fn process_creation_form(
         telephone: ActiveValue::Set(Some(owner.telephone)),
         ..Default::default()
     };
-    let insert_result = owners::Entity::insert(new_owner.clone())
-        .exec(&app_state.conn)
-        .await?;
 
-    FlashMessage::info("New Owner Created").send();
-    let redirect_url = format!("/owners/{}", insert_result.last_insert_id);
-    let res = HttpResponse::Found()
-        .append_header((http::header::LOCATION, redirect_url))
-        .finish();
+    let result = owners::Entity::insert(new_owner).exec(conn).await?;
 
-    Ok(res)
+    Ok(result.last_insert_id)
 }
