@@ -70,7 +70,10 @@ async fn fetch_owner_with_pets(
     let (owner, pets) = owner_with_pets
         .into_iter()
         .next()
-        .ok_or(AppError::OwnerNotFound(owner_id))?;
+        .ok_or(AppError::ResourceNotFound {
+            resource: "owner".to_string(),
+            id: owner_id,
+        })?;
 
     let pet_type_ids: Vec<u32> = pets.iter().map(|p| p.type_id).collect();
     let pet_types = types::Entity::find()

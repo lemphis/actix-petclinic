@@ -10,6 +10,7 @@ impl Page {
         let total_pages = total_count.div_ceil(5);
         let start_page = page / 5 * 5 + 1;
         let end_page = (start_page + 4).min(total_pages);
+
         Page {
             total_pages,
             has_previous: page > 1,
