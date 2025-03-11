@@ -9,16 +9,23 @@
   id="search-owner-form"
 >
   <div class="form-group">
-    <div class="control-group" id="lastNameGroup">
-      <label class="col-sm-2 control-label">Last name </label>
+    <div class="control-group" id="last-name-group">
+      <label class="col-sm-2 control-label">Last name</label>
       <div class="col-sm-10">
-        <input class="form-control" size="30" maxlength="80" />
+        <input
+          class="form-control"
+          size="30"
+          maxlength="80"
+          name="last_name"
+          id="last-name"
+          value="{{ last_name | default(value="") }}"
+        />
         <span class="help-inline">
-          {# TODO: validation error 처리
+          {% if translation %}
           <div>
-            <p>찾을 수 없습니다</p>
+            <p>{{ translation["notFound"] }}</p>
           </div>
-          #}
+          {% endif %}
         </span>
       </div>
     </div>
