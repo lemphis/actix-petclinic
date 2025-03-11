@@ -3,11 +3,11 @@ use std::{collections::HashMap, sync::LazyLock};
 use actix_web::{
     get,
     http::{self},
-    post, web, HttpResponse,
+    post, web, HttpRequest, HttpResponse,
 };
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages, Level};
 use regex::Regex;
-use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use serde::{Deserialize, Serialize};
 use tera::Context;
 use validator::Validate;
@@ -195,4 +195,12 @@ async fn create_owner(
     let result = owners::Entity::insert(new_owner).exec(conn).await?;
 
     Ok(result.last_insert_id)
+}
+
+#[get("/owners/find")]
+pub async fn init_find_form(app_state: web::Data<AppState>) -> Result<HttpResponse, AppError> {
+    let mut ctx = Context::new();
+    ctx.insert("current_menu", "owners");
+
+    render(&app_state.tera, "owner/find-owners.html", ctx)
 }
