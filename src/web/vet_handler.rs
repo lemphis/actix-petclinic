@@ -142,9 +142,7 @@ pub async fn show_vet_list(
     ctx.insert("page_range", page.page_range());
     ctx.insert("current_menu", "vets");
 
-    let res = render(&app_state.tera, "vet/vet-list.html", ctx)?;
-
-    Ok(res)
+    render(&app_state.tera, "vet/vet-list.html", ctx)
 }
 
 async fn fetch_vet_specialties_with_pagination(
