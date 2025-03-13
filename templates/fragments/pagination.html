@@ -1,0 +1,66 @@
+{% macro page(page, page_range, has_previous, has_next, total_pages, path, query_params) %}
+{% if total_pages > 1 %}
+<div>
+  <span>Pages:</span>
+  <span>[</span>
+  {% for page_num in page_range %}
+  <span>
+    {% if page_num == page %}
+    <span>{{ page_num }}</span>
+    {% else %}
+    <a
+      href="{{ path }}?page={{ page_num }}{% for param in query_params %}&{{ param.0 }}={{ param.1 }}{% endfor %}"
+    >
+      {{ page_num }}
+    </a>
+    {% endif %}
+  </span>
+  {% endfor %}
+  <span>]&nbsp;</span>
+  <span>
+    {% if has_previous %}
+    <a
+      href="{{ path }}?page=1{% for param in query_params %}&{{ param.0 }}={{ param.1 }}{% endfor %}"
+      title="First"
+      class="fa fa-fast-backward"
+    ></a>
+    {% else %}
+    <span title="First" class="fa fa-fast-backward"></span>
+    {% endif %}
+  </span>
+  <span>
+    {% if has_previous %}
+    <a
+      href="{{ path }}?page={{ page - 1 }}{% for param in query_params %}&{{ param.0 }}={{ param.1 }}{% endfor %}"
+      title="Previous"
+      class="fa fa-step-backward"
+    ></a>
+    {% else %}
+    <span title="Previous" class="fa fa-step-backward"></span>
+    {% endif %}
+  </span>
+  <span>
+    {% if has_next %}
+    <a
+      href="{{ path }}?page={{ page + 1 }}{% for param in query_params %}&{{ param.0 }}={{ param.1 }}{% endfor %}"
+      title="Next"
+      class="fa fa-step-forward"
+    ></a>
+    {% else %}
+    <span title="Next" class="fa fa-step-forward"></span>
+    {% endif %}
+  </span>
+  <span>
+    {% if has_next %}
+    <a
+      href="{{ path }}?page={{ total_pages }}{% for param in query_params %}&{{ param.0 }}={{ param.1 }}{% endfor %}"
+      title="Last"
+      class="fa fa-fast-forward"
+    ></a>
+    {% else %}
+    <span title="Last" class="fa fa-fast-forward"></span>
+    {% endif %}
+  </span>
+</div>
+{% endif %}
+{% endmacro %}

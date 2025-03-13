@@ -1,3 +1,4 @@
+{% import "fragments/pagination.html" as pagination %}
 {% extends "fragments/layout.html" %}
 {% block content %}
 <h2>Veterinarians</h2>
@@ -27,58 +28,5 @@
   </tbody>
 </table>
 
-<div>
-  <span>Pages:</span>
-  <span>[</span>
-  {% for page_num in page_range %}
-  <span>
-    {% if page_num == page %}
-    <span>{{ page_num }}</span>
-    {% else %}
-    <a href="/vets.html?page={{ page_num }}">{{ page_num }}</a>
-    {% endif %}
-  </span>
-  {% endfor %}
-  <span>]&nbsp;</span>
-  <span>
-    {% if has_previous %}
-    <a href="/vets.html?page=1" title="First" class="fa fa-fast-backward"></a>
-    {% else %}
-    <span title="First" class="fa fa-fast-backward"></span>
-    {% endif %}
-  </span>
-  <span>
-    {% if has_previous %}
-    <a
-      href="/vets.html?page={{ page - 1 }}"
-      title="Previous"
-      class="fa fa-step-backward"
-    ></a>
-    {% else %}
-    <span title="Previous" class="fa fa-step-backward"></span>
-    {% endif %}
-  </span>
-  <span>
-    {% if has_next %}
-    <a
-      href="/vets.html?page={{ page + 1 }}"
-      title="Next"
-      class="fa fa-step-forward"
-    ></a>
-    {% else %}
-    <span title="Next" class="fa fa-step-forward"></span>
-    {% endif %}
-  </span>
-  <span>
-    {% if has_next %}
-    <a
-      href="/vets.html?page={{ total_pages }}"
-      title="Last"
-      class="fa fa-fast-forward"
-    ></a>
-    {% else %}
-    <span title="Last" class="fa fa-fast-forward"></span>
-    {% endif %}
-  </span>
-</div>
+{{ pagination::page(page=page, page_range=page_range, has_previous=has_previous, has_next=has_next, total_pages=total_pages, path="/vets.html", query_params=query_params) }}
 {% endblock content %}

@@ -140,6 +140,7 @@ pub async fn show_vet_list(
     ctx.insert("has_previous", &page.has_previous());
     ctx.insert("has_next", &page.has_next());
     ctx.insert("page_range", page.page_range());
+    ctx.insert("query_params", &Vec::<(&str, String)>::new());
     ctx.insert("current_menu", "vets");
 
     render(&app_state.tera, "vet/vet-list.html", ctx)
