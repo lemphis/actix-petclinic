@@ -7,14 +7,17 @@ use actix_web::{
 };
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages, Level};
 use regex::Regex;
-use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
+use sea_orm::{
+    prelude::Expr, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, PaginatorTrait,
+    QueryFilter, QuerySelect,
+};
 use serde::{Deserialize, Serialize};
 use tera::Context;
 use validator::Validate;
 
 use crate::{
     domain::owner::{self, owners, pet, types},
-    model::app_error::AppError,
+    model::{app_error::AppError, page::Page},
     web::render,
     AppState,
 };
@@ -212,6 +215,17 @@ struct FindOwnerRequestQuery {
     size: Option<u64>,
 }
 
+#[derive(Debug, Serialize, FromQueryResult)]
+struct OwnersWithPetNamesQueryResult {
+    id: u32,
+    first_name: Option<String>,
+    last_name: Option<String>,
+    address: Option<String>,
+    city: Option<String>,
+    telephone: Option<String>,
+    pet_names: Option<String>,
+}
+
 #[get("/owners")]
 pub async fn process_find_form(
     req: HttpRequest,
@@ -229,15 +243,12 @@ pub async fn process_find_form(
     let mut ctx = Context::new();
     ctx.insert("current_menu", "owners");
 
-    let owner_with_pets = owners::Entity::find()
-        .left_join(pet::Entity)
+    let owner_total_count = owners::Entity::find()
         .filter(owners::Column::LastName.like(format!("{last_name}%")))
-        .limit(size)
-        .select_also(pet::Entity)
-        .all(conn)
+        .count(&app_state.conn)
         .await?;
 
-    if owner_with_pets.is_empty() {
+    if owner_total_count == 0 {
         let translation = app_state.i18n.get(&req);
         ctx.insert("translation", translation);
         ctx.insert("last_name", &last_name);
@@ -245,16 +256,41 @@ pub async fn process_find_form(
         return render(&app_state.tera, "owner/find-owners.html", ctx);
     }
 
-    if owner_with_pets.len() == 1 {
+    let owner_with_pets = owners::Entity::find()
+        .left_join(pet::Entity)
+        .filter(owners::Column::LastName.like(format!("{last_name}%")))
+        .column_as(
+            Expr::cust("GROUP_CONCAT(pets.name SEPARATOR ', ')"),
+            "pet_names",
+        )
+        .group_by(owners::Column::Id)
+        .into_model::<OwnersWithPetNamesQueryResult>()
+        .paginate(conn, size)
+        .fetch_page(cur_page - 1)
+        .await?;
+
+    if cur_page == 1 && owner_with_pets.len() == 1 {
         let res = HttpResponse::Found()
             .append_header((
                 http::header::LOCATION,
-                format!("/owners/{}", owner_with_pets[0].0.id),
+                format!("/owners/{}", owner_with_pets[0].id),
             ))
             .finish();
 
         return Ok(res);
     }
 
-    todo!()
+    let page = Page::new(cur_page, owner_total_count);
+    let mut ctx = Context::new();
+    ctx.insert("owners", &owner_with_pets);
+    ctx.insert("last_name", &last_name);
+    ctx.insert("page", &cur_page);
+    ctx.insert("total_pages", &page.total_pages());
+    ctx.insert("has_previous", &page.has_previous());
+    ctx.insert("has_next", &page.has_next());
+    ctx.insert("page_range", page.page_range());
+    ctx.insert("query_params", &vec![("last_name", last_name)]);
+    ctx.insert("current_menu", "owners");
+
+    render(&app_state.tera, "owner/owners-list.html", ctx)
 }
