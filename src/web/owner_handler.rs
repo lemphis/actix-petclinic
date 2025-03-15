@@ -8,8 +8,8 @@ use actix_web::{
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages, Level};
 use regex::Regex;
 use sea_orm::{
-    prelude::Expr, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, PaginatorTrait,
-    QueryFilter, QuerySelect,
+    prelude::Expr, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult,
+    PaginatorTrait, QueryFilter, QuerySelect,
 };
 use serde::{Deserialize, Serialize};
 use tera::Context;
@@ -56,13 +56,14 @@ async fn fetch_owner_with_pets(
         .all(conn)
         .await?;
 
-    let (owner, pets) = owner_with_pets
-        .into_iter()
-        .next()
-        .ok_or(AppError::ResourceNotFound {
-            resource: "owner".to_string(),
-            id: owner_id,
-        })?;
+    let (owner, pets) =
+        owner_with_pets
+            .into_iter()
+            .next()
+            .ok_or_else(|| AppError::ResourceNotFound {
+                resource: "owner".to_string(),
+                id: owner_id,
+            })?;
 
     let pet_type_ids: Vec<u32> = pets.iter().map(|p| p.type_id).collect();
     let pet_types = types::Entity::find()
@@ -293,4 +294,36 @@ pub async fn process_find_form(
     ctx.insert("current_menu", "owners");
 
     render(&app_state.tera, "owner/owners-list.html", ctx)
+}
+
+#[get("/owners/{id:\\d+}/edit")]
+pub async fn init_update_owner_form(
+    app_state: web::Data<AppState>,
+    path: web::Path<u32>,
+) -> Result<HttpResponse, AppError> {
+    let owner_id = path.into_inner();
+    let owner = fetch_owner_by_id(&app_state.conn, owner_id).await?;
+
+    let mut ctx = Context::new();
+    ctx.insert("owner", &owner);
+    ctx.insert("current_menu", "owners");
+
+    render(
+        &app_state.tera,
+        "owner/create-or-update-owner-form.html",
+        ctx,
+    )
+}
+
+async fn fetch_owner_by_id(
+    conn: &DatabaseConnection,
+    owner_id: u32,
+) -> Result<owners::Model, AppError> {
+    owners::Entity::find_by_id(owner_id)
+        .one(conn)
+        .await?
+        .ok_or_else(|| AppError::ResourceNotFound {
+            resource: "owner".to_string(),
+            id: owner_id,
+        })
 }
