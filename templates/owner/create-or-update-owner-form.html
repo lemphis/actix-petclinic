@@ -9,11 +9,12 @@
     {{ input::input(label="Address", name="address", type="text", before_value=owner.address | default(value=""), errors=errors["address"] | default(value="")) }}
     {{ input::input(label="City", name="city", type="text", before_value=owner.city | default(value=""), errors=errors["city"] | default(value="")) }}
     {{ input::input(label="Telephone", name="telephone", type="text", before_value=owner.telephone | default(value=""), errors=errors["telephone"] | default(value="")) }}
+    <input type="hidden" name="id" value="{{ owner.id | default(value="") }}" />
   </div>
   <div class="form-group">
     <div class="col-sm-offset-2 col-sm-10">
       <button class="btn btn-primary" type="submit">
-        {% if owner %}Update Owner{% else %}Add Owner{% endif %}
+        {% if owner.id %}Update Owner{% else %}Add Owner{% endif %}
       </button>
     </div>
   </div>

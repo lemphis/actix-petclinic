@@ -18,6 +18,7 @@ pub fn configure_route(cfg: &mut ServiceConfig) {
         .service(owner_handler::init_find_form)
         .service(owner_handler::process_find_form)
         .service(owner_handler::init_update_owner_form)
+        .service(owner_handler::process_update_owner_form)
         .service(error_handler::trigger_error);
 }
 

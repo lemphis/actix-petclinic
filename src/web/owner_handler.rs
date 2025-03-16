@@ -8,8 +8,8 @@ use actix_web::{
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages, Level};
 use regex::Regex;
 use sea_orm::{
-    prelude::Expr, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult,
-    PaginatorTrait, QueryFilter, QuerySelect,
+    prelude::Expr, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait,
+    FromQueryResult, PaginatorTrait, QueryFilter, QuerySelect,
 };
 use serde::{Deserialize, Serialize};
 use tera::Context;
@@ -23,6 +23,7 @@ use crate::{
 };
 
 static PHONE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\d{10}$").unwrap());
+static NUMERIC_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(?:\d+)?$").unwrap());
 
 #[get("/owners/{id:\\d+}")]
 pub async fn show_owner(
@@ -119,7 +120,7 @@ pub async fn init_creation_form(app_state: web::Data<AppState>) -> Result<HttpRe
 }
 
 #[derive(Debug, Serialize, Deserialize, Validate)]
-struct CreateOwnerForm {
+struct CreateOrUpdateOwnerForm {
     #[validate(length(min = 1, message = "공백일 수 없습니다"))]
     first_name: String,
     #[validate(length(min = 1, message = "공백일 수 없습니다"))]
@@ -131,12 +132,14 @@ struct CreateOwnerForm {
     #[validate(length(min = 1, message = "공백일 수 없습니다"))]
     #[validate(regex(path = *PHONE_REGEX, message = "Telephone must be a 10-digit number"))]
     telephone: String,
+    #[validate(regex(path = *NUMERIC_REGEX))]
+    id: String,
 }
 
 #[post("/owners/new")]
 pub async fn process_creation_form(
     app_state: web::Data<AppState>,
-    form: web::Form<CreateOwnerForm>,
+    form: web::Form<CreateOrUpdateOwnerForm>,
 ) -> Result<HttpResponse, AppError> {
     let owner = form.into_inner();
 
@@ -156,7 +159,7 @@ pub async fn process_creation_form(
 
 fn handle_validation_errors(
     tera: &tera::Tera,
-    owner: CreateOwnerForm,
+    owner: CreateOrUpdateOwnerForm,
     errors: validator::ValidationErrors,
 ) -> Result<HttpResponse, AppError> {
     let mut errors_map: HashMap<String, Vec<String>> = HashMap::new();
@@ -185,7 +188,7 @@ fn handle_validation_errors(
 
 async fn create_owner(
     conn: &sea_orm::DatabaseConnection,
-    owner: CreateOwnerForm,
+    owner: CreateOrUpdateOwnerForm,
 ) -> Result<u32, AppError> {
     let new_owner = owners::ActiveModel {
         first_name: ActiveValue::Set(Some(owner.first_name)),
@@ -326,4 +329,45 @@ async fn fetch_owner_by_id(
             resource: "owner".to_string(),
             id: owner_id,
         })
+}
+
+#[post("/owners/{id:\\d+}/edit")]
+pub async fn process_update_owner_form(
+    app_state: web::Data<AppState>,
+    path: web::Path<u32>,
+    form: web::Form<CreateOrUpdateOwnerForm>,
+) -> Result<HttpResponse, AppError> {
+    let owner_id = path.into_inner();
+    let owner = form.into_inner();
+
+    if let Err(errors) = owner.validate() {
+        return handle_validation_errors(&app_state.tera, owner, errors);
+    }
+
+    let body_owner_id = owner.id.parse::<u32>().unwrap();
+    if body_owner_id != owner_id {
+        return Err(AppError::ResourceIdMismatch {
+            resource: "owner".to_string(),
+            path_id: owner_id,
+            body_id: body_owner_id,
+        });
+    }
+
+    let owner_active_model = owners::ActiveModel {
+        id: ActiveValue::Unchanged(owner_id),
+        first_name: ActiveValue::Set(Some(owner.first_name)),
+        last_name: ActiveValue::Set(Some(owner.last_name)),
+        address: ActiveValue::Set(Some(owner.address)),
+        city: ActiveValue::Set(Some(owner.city)),
+        telephone: ActiveValue::Set(Some(owner.telephone)),
+    };
+
+    owner_active_model.update(&app_state.conn).await?;
+
+    FlashMessage::info("Owner Values Updated").send();
+    let res = HttpResponse::Found()
+        .append_header((http::header::LOCATION, format!("/owners/{owner_id}")))
+        .finish();
+
+    Ok(res)
 }
