@@ -150,11 +150,8 @@ pub async fn process_creation_form(
     let last_insert_id = create_owner(&app_state.conn, owner).await?;
 
     FlashMessage::info("New Owner Created").send();
-    let res = HttpResponse::Found()
-        .append_header((http::header::LOCATION, format!("/owners/{last_insert_id}")))
-        .finish();
 
-    Ok(res)
+    Ok(redirect_to_owner_detail(last_insert_id))
 }
 
 fn handle_validation_errors(
@@ -202,6 +199,12 @@ async fn create_owner(
     let result = owners::Entity::insert(new_owner).exec(conn).await?;
 
     Ok(result.last_insert_id)
+}
+
+fn redirect_to_owner_detail(owner_id: u32) -> HttpResponse {
+    HttpResponse::Found()
+        .append_header((http::header::LOCATION, format!("/owners/{owner_id}")))
+        .finish()
 }
 
 #[get("/owners/find")]
@@ -260,33 +263,16 @@ pub async fn process_find_form(
         return render(&app_state.tera, "owner/find-owners.html", ctx);
     }
 
-    let owner_with_pets = owners::Entity::find()
-        .left_join(pet::Entity)
-        .filter(owners::Column::LastName.like(format!("{last_name}%")))
-        .column_as(
-            Expr::cust("GROUP_CONCAT(pets.name SEPARATOR ', ')"),
-            "pet_names",
-        )
-        .group_by(owners::Column::Id)
-        .into_model::<OwnersWithPetNamesQueryResult>()
-        .paginate(conn, size)
-        .fetch_page(cur_page - 1)
-        .await?;
+    let owners_with_pet_names =
+        fetch_owners_with_pet_names(conn, &last_name, cur_page, size).await?;
 
-    if cur_page == 1 && owner_with_pets.len() == 1 {
-        let res = HttpResponse::Found()
-            .append_header((
-                http::header::LOCATION,
-                format!("/owners/{}", owner_with_pets[0].id),
-            ))
-            .finish();
-
-        return Ok(res);
+    if cur_page == 1 && owners_with_pet_names.len() == 1 {
+        return Ok(redirect_to_owner_detail(owners_with_pet_names[0].id));
     }
 
     let page = Page::new(cur_page, owner_total_count);
     let mut ctx = Context::new();
-    ctx.insert("owners", &owner_with_pets);
+    ctx.insert("owners", &owners_with_pet_names);
     ctx.insert("last_name", &last_name);
     ctx.insert("page", &cur_page);
     ctx.insert("total_pages", &page.total_pages());
@@ -297,6 +283,28 @@ pub async fn process_find_form(
     ctx.insert("current_menu", "owners");
 
     render(&app_state.tera, "owner/owners-list.html", ctx)
+}
+
+async fn fetch_owners_with_pet_names(
+    conn: &DatabaseConnection,
+    last_name: &str,
+    page: u64,
+    size: u64,
+) -> Result<Vec<OwnersWithPetNamesQueryResult>, AppError> {
+    let owners_with_pet_names = owners::Entity::find()
+        .left_join(pet::Entity)
+        .filter(owners::Column::LastName.like(format!("{}%", last_name)))
+        .column_as(
+            Expr::cust("GROUP_CONCAT(pets.name SEPARATOR ', ')"),
+            "pet_names",
+        )
+        .group_by(owners::Column::Id)
+        .into_model::<OwnersWithPetNamesQueryResult>()
+        .paginate(conn, size)
+        .fetch_page(page - 1)
+        .await?;
+
+    Ok(owners_with_pet_names)
 }
 
 #[get("/owners/{id:\\d+}/edit")]
@@ -365,9 +373,6 @@ pub async fn process_update_owner_form(
     owner_active_model.update(&app_state.conn).await?;
 
     FlashMessage::info("Owner Values Updated").send();
-    let res = HttpResponse::Found()
-        .append_header((http::header::LOCATION, format!("/owners/{owner_id}")))
-        .finish();
 
-    Ok(res)
+    Ok(redirect_to_owner_detail(owner_id))
 }
