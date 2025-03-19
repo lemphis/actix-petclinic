@@ -35,8 +35,8 @@
   </tbody>
 </table>
 
-<a href="{{ owner.id }}/edit" class="btn btn-primary">Edit Owner</a>
-<a href="{{ owner.id }}/pets/new" class="btn btn-primary">Add New Pet</a>
+<a href="{{ owner.owner_id }}/edit" class="btn btn-primary">Edit Owner</a>
+<a href="{{ owner.owner_id }}/pets/new" class="btn btn-primary">Add New Pet</a>
 
 <br />
 <br />
@@ -50,11 +50,11 @@
       <td valign="top">
         <dl class="dl-horizontal">
           <dt>Name</dt>
-          <dd>{{ pet.0.name }}</dd>
+          <dd>{{ pet.pet_name }}</dd>
           <dt>Birth Date</dt>
-          <dd>{{ pet.0.birth_date }}</dd>
+          <dd>{{ pet.birth_date }}</dd>
           <dt>Type</dt>
-          <dd>{{ pet.1.name }}</dd>
+          <dd>{{ pet.type_name }}</dd>
         </dl>
       </td>
       <td valign="top">
@@ -68,10 +68,10 @@
           <tbody>
             <tr>
               <td>
-                <a href="{{ owner.id }}/pets/{{ pet.0.id }}/edit">Edit Pet</a>
+                <a href="{{ owner.owner_id }}/pets/{{ pet.pet_id }}/edit">Edit Pet</a>
               </td>
               <td>
-                <a href="{{ owner.id }}/pets/{{ pet.0.id }}/visits/new">Add Visit</a>
+                <a href="{{ owner.owner_id }}/pets/{{ pet.pet_id }}/visits/new">Add Visit</a>
               </td>
             </tr>
           </tbody>

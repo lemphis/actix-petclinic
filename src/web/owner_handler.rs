@@ -7,17 +7,13 @@ use actix_web::{
 };
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages, Level};
 use regex::Regex;
-use sea_orm::{
-    prelude::Expr, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait,
-    FromQueryResult, PaginatorTrait, QueryFilter, QuerySelect,
-};
 use serde::{Deserialize, Serialize};
 use tera::Context;
 use validator::Validate;
 
 use crate::{
-    domain::owner::{self, owners, pet, types},
     model::{app_error::AppError, page::Page},
+    service::owner_service::OwnerService,
     web::render,
     AppState,
 };
@@ -25,7 +21,7 @@ use crate::{
 static PHONE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\d{10}$").unwrap());
 static NUMERIC_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(?:\d+)?$").unwrap());
 
-#[get("/owners/{id:\\d+}")]
+#[get("/owners/{owner_id:\\d+}")]
 pub async fn show_owner(
     app_state: web::Data<AppState>,
     path: web::Path<u32>,
@@ -34,63 +30,19 @@ pub async fn show_owner(
     let owner_id = path.into_inner();
     let conn = &app_state.conn;
 
-    let (owner, pets_with_type) = fetch_owner_with_pets(conn, owner_id).await?;
+    let owner_with_pets_and_types =
+        OwnerService::fetch_owner_with_pets_and_types_by_owner_id(conn, owner_id).await?;
 
     let (success_message, error_message) = extract_flash_messages(&messages);
 
     let mut ctx = Context::new();
-    ctx.insert("owner", &owner);
-    ctx.insert("pets", &pets_with_type);
+    ctx.insert("owner", &owner_with_pets_and_types[0]);
+    ctx.insert("pets", &owner_with_pets_and_types);
     ctx.insert("success_message", &success_message);
     ctx.insert("error_message", &error_message);
     ctx.insert("current_menu", "owners");
 
     render(&app_state.tera, "owner/owner-details.html", ctx)
-}
-
-async fn fetch_owner_with_pets(
-    conn: &sea_orm::DatabaseConnection,
-    owner_id: u32,
-) -> Result<(owners::Model, Vec<(pet::Model, types::Model)>), AppError> {
-    let owner_with_pets = owners::Entity::find_by_id(owner_id)
-        .find_with_related(pet::Entity)
-        .all(conn)
-        .await?;
-
-    let (owner, pets) =
-        owner_with_pets
-            .into_iter()
-            .next()
-            .ok_or_else(|| AppError::ResourceNotFound {
-                resource: "owner".to_string(),
-                id: owner_id,
-            })?;
-
-    let pet_type_ids: Vec<u32> = pets.iter().map(|p| p.type_id).collect();
-    let pet_types = types::Entity::find()
-        .filter(types::Column::Id.is_in(pet_type_ids))
-        .all(conn)
-        .await?;
-
-    let pets_with_type = join_pets_with_types(pets, pet_types);
-
-    Ok((owner, pets_with_type))
-}
-
-fn join_pets_with_types(
-    pets: Vec<pet::Model>,
-    pet_types: Vec<types::Model>,
-) -> Vec<(pet::Model, types::Model)> {
-    let type_map: HashMap<u32, types::Model> = pet_types.into_iter().map(|t| (t.id, t)).collect();
-
-    let mut joined_pets: Vec<(pet::Model, owner::types::Model)> = pets
-        .into_iter()
-        .filter_map(|pet| type_map.get(&pet.type_id).map(|t| (pet, t.clone())))
-        .collect();
-
-    joined_pets.sort_by(|(a, _), (b, _)| a.name.cmp(&b.name));
-
-    joined_pets
 }
 
 fn extract_flash_messages(messages: &IncomingFlashMessages) -> (Option<&str>, Option<&str>) {
@@ -147,11 +99,19 @@ pub async fn process_creation_form(
         return handle_validation_errors(&app_state.tera, owner, errors);
     }
 
-    let last_insert_id = create_owner(&app_state.conn, owner).await?;
+    let new_owner = OwnerService::save_owner(
+        &app_state.conn,
+        Some(owner.first_name),
+        Some(owner.last_name),
+        Some(owner.address),
+        Some(owner.city),
+        Some(owner.telephone),
+    )
+    .await?;
 
     FlashMessage::info("New Owner Created").send();
 
-    Ok(redirect_to_owner_detail(last_insert_id))
+    Ok(redirect_to_owner_detail(new_owner.id))
 }
 
 fn handle_validation_errors(
@@ -183,24 +143,6 @@ fn handle_validation_errors(
     render(tera, "owner/create-or-update-owner-form.html", ctx)
 }
 
-async fn create_owner(
-    conn: &sea_orm::DatabaseConnection,
-    owner: CreateOrUpdateOwnerForm,
-) -> Result<u32, AppError> {
-    let new_owner = owners::ActiveModel {
-        first_name: ActiveValue::Set(Some(owner.first_name)),
-        last_name: ActiveValue::Set(Some(owner.last_name)),
-        address: ActiveValue::Set(Some(owner.address)),
-        city: ActiveValue::Set(Some(owner.city)),
-        telephone: ActiveValue::Set(Some(owner.telephone)),
-        ..Default::default()
-    };
-
-    let result = owners::Entity::insert(new_owner).exec(conn).await?;
-
-    Ok(result.last_insert_id)
-}
-
 fn redirect_to_owner_detail(owner_id: u32) -> HttpResponse {
     HttpResponse::Found()
         .append_header((http::header::LOCATION, format!("/owners/{owner_id}")))
@@ -216,28 +158,17 @@ pub async fn init_find_form(app_state: web::Data<AppState>) -> Result<HttpRespon
 }
 
 #[derive(Debug, Serialize, Deserialize, Validate)]
-struct FindOwnerRequestQuery {
+struct FindOwnerRequestQueryParams {
     last_name: Option<String>,
     page: Option<u64>,
     size: Option<u64>,
-}
-
-#[derive(Debug, Serialize, FromQueryResult)]
-struct OwnersWithPetNamesQueryResult {
-    id: u32,
-    first_name: Option<String>,
-    last_name: Option<String>,
-    address: Option<String>,
-    city: Option<String>,
-    telephone: Option<String>,
-    pet_names: Option<String>,
 }
 
 #[get("/owners")]
 pub async fn process_find_form(
     req: HttpRequest,
     app_state: web::Data<AppState>,
-    query: web::Query<FindOwnerRequestQuery>,
+    query: web::Query<FindOwnerRequestQueryParams>,
 ) -> Result<HttpResponse, AppError> {
     let query = query.into_inner();
     let (last_name, cur_page, size) = (
@@ -250,10 +181,8 @@ pub async fn process_find_form(
     let mut ctx = Context::new();
     ctx.insert("current_menu", "owners");
 
-    let owner_total_count = owners::Entity::find()
-        .filter(owners::Column::LastName.like(format!("{last_name}%")))
-        .count(&app_state.conn)
-        .await?;
+    let owner_total_count =
+        OwnerService::fetch_owner_count_by_last_name_prefix(&app_state.conn, &last_name).await?;
 
     if owner_total_count == 0 {
         let translation = app_state.i18n.get(&req);
@@ -264,7 +193,7 @@ pub async fn process_find_form(
     }
 
     let owners_with_pet_names =
-        fetch_owners_with_pet_names(conn, &last_name, cur_page, size).await?;
+        OwnerService::fetch_owners_with_pet_names(conn, &last_name, cur_page, size).await?;
 
     if cur_page == 1 && owners_with_pet_names.len() == 1 {
         return Ok(redirect_to_owner_detail(owners_with_pet_names[0].id));
@@ -285,35 +214,13 @@ pub async fn process_find_form(
     render(&app_state.tera, "owner/owners-list.html", ctx)
 }
 
-async fn fetch_owners_with_pet_names(
-    conn: &DatabaseConnection,
-    last_name: &str,
-    page: u64,
-    size: u64,
-) -> Result<Vec<OwnersWithPetNamesQueryResult>, AppError> {
-    let owners_with_pet_names = owners::Entity::find()
-        .left_join(pet::Entity)
-        .filter(owners::Column::LastName.like(format!("{}%", last_name)))
-        .column_as(
-            Expr::cust("GROUP_CONCAT(pets.name SEPARATOR ', ')"),
-            "pet_names",
-        )
-        .group_by(owners::Column::Id)
-        .into_model::<OwnersWithPetNamesQueryResult>()
-        .paginate(conn, size)
-        .fetch_page(page - 1)
-        .await?;
-
-    Ok(owners_with_pet_names)
-}
-
-#[get("/owners/{id:\\d+}/edit")]
+#[get("/owners/{owner_id:\\d+}/edit")]
 pub async fn init_update_owner_form(
     app_state: web::Data<AppState>,
     path: web::Path<u32>,
 ) -> Result<HttpResponse, AppError> {
     let owner_id = path.into_inner();
-    let owner = fetch_owner_by_id(&app_state.conn, owner_id).await?;
+    let owner = OwnerService::fetch_owner_by_id(&app_state.conn, owner_id).await?;
 
     let mut ctx = Context::new();
     ctx.insert("owner", &owner);
@@ -326,20 +233,7 @@ pub async fn init_update_owner_form(
     )
 }
 
-async fn fetch_owner_by_id(
-    conn: &DatabaseConnection,
-    owner_id: u32,
-) -> Result<owners::Model, AppError> {
-    owners::Entity::find_by_id(owner_id)
-        .one(conn)
-        .await?
-        .ok_or_else(|| AppError::ResourceNotFound {
-            resource: "owner".to_string(),
-            id: owner_id,
-        })
-}
-
-#[post("/owners/{id:\\d+}/edit")]
+#[post("/owners/{owner_id:\\d+}/edit")]
 pub async fn process_update_owner_form(
     app_state: web::Data<AppState>,
     path: web::Path<u32>,
@@ -361,16 +255,16 @@ pub async fn process_update_owner_form(
         });
     }
 
-    let owner_active_model = owners::ActiveModel {
-        id: ActiveValue::Unchanged(owner_id),
-        first_name: ActiveValue::Set(Some(owner.first_name)),
-        last_name: ActiveValue::Set(Some(owner.last_name)),
-        address: ActiveValue::Set(Some(owner.address)),
-        city: ActiveValue::Set(Some(owner.city)),
-        telephone: ActiveValue::Set(Some(owner.telephone)),
-    };
-
-    owner_active_model.update(&app_state.conn).await?;
+    OwnerService::update_owner(
+        &app_state.conn,
+        owner_id,
+        Some(owner.first_name),
+        Some(owner.last_name),
+        Some(owner.address),
+        Some(owner.city),
+        Some(owner.telephone),
+    )
+    .await?;
 
     FlashMessage::info("Owner Values Updated").send();
 

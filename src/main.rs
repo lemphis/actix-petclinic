@@ -1,15 +1,16 @@
 use config::i18n::I18n;
-use sea_orm::DatabaseConnection;
+use sea_orm::DbConn;
 use tera::Tera;
 
 mod config;
 mod domain;
 mod model;
+mod service;
 mod web;
 
 #[derive(Clone)]
 struct AppState {
-    conn: DatabaseConnection,
+    conn: DbConn,
     tera: Tera,
     i18n: I18n,
 }

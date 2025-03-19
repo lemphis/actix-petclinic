@@ -5,9 +5,7 @@ use crate::{
     AppState,
 };
 use actix_web::{get, web, HttpResponse};
-use sea_orm::{
-    ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder,
-};
+use sea_orm::{ColumnTrait, DbConn, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tera::Context;
@@ -42,17 +40,17 @@ pub async fn show_resources_vet_list(
     Ok(res)
 }
 
-async fn fetch_all_vet_specialties(conn: &DatabaseConnection) -> Result<Vec<Vet>, sea_orm::DbErr> {
+async fn fetch_all_vet_specialties(conn: &DbConn) -> Result<Vec<Vet>, sea_orm::DbErr> {
     let vets = fetch_all_vets(conn).await?;
     fetch_specialties_by_vets(conn, &vets).await
 }
 
-async fn fetch_all_vets(conn: &DatabaseConnection) -> Result<Vec<vet::Model>, sea_orm::DbErr> {
+async fn fetch_all_vets(conn: &DbConn) -> Result<Vec<vet::Model>, sea_orm::DbErr> {
     vet::Entity::find().all(conn).await
 }
 
 async fn fetch_specialties_by_vets(
-    conn: &DatabaseConnection,
+    conn: &DbConn,
     vets: &[vet::Model],
 ) -> Result<Vec<Vet>, sea_orm::DbErr> {
     let vet_ids = vets.iter().map(|vet| vet.id).collect::<Vec<_>>();
@@ -73,7 +71,7 @@ async fn fetch_specialties_by_vets(
 }
 
 async fn fetch_vet_specialties_by_vet_ids(
-    conn: &DatabaseConnection,
+    conn: &DbConn,
     vet_ids: &[u32],
 ) -> Result<Vec<vet_specialty::Model>, sea_orm::DbErr> {
     vet_specialty::Entity::find()
@@ -83,7 +81,7 @@ async fn fetch_vet_specialties_by_vet_ids(
 }
 
 async fn fetch_specialties_by_specialty_ids(
-    conn: &DatabaseConnection,
+    conn: &DbConn,
     specialty_ids: &[u32],
 ) -> Result<Vec<specialty::Model>, sea_orm::DbErr> {
     specialty::Entity::find()
@@ -147,7 +145,7 @@ pub async fn show_vet_list(
 }
 
 async fn fetch_vet_specialties_with_pagination(
-    conn: &DatabaseConnection,
+    conn: &DbConn,
     page: u64,
     size: u64,
 ) -> Result<Vec<Vet>, sea_orm::DbErr> {
@@ -156,7 +154,7 @@ async fn fetch_vet_specialties_with_pagination(
 }
 
 async fn fetch_vets_with_pagination(
-    conn: &DatabaseConnection,
+    conn: &DbConn,
     page: u64,
     size: u64,
 ) -> Result<Vec<vet::Model>, sea_orm::DbErr> {
@@ -167,6 +165,6 @@ async fn fetch_vets_with_pagination(
         .await
 }
 
-async fn fetch_vet_total_count(conn: &DatabaseConnection) -> Result<u64, sea_orm::DbErr> {
+async fn fetch_vet_total_count(conn: &DbConn) -> Result<u64, sea_orm::DbErr> {
     vet::Entity::find().count(conn).await
 }
