@@ -13,11 +13,11 @@
   <tbody>
     {% for vet in vets %}
     <tr>
-      <td>{{ vet.firstName }} {{ vet.lastName }}</td>
-      {% if vet.specialties is defined %}
+      <td>{{ vet.first_name }} {{ vet.last_name }}</td>
+      {% if vet.specialties %}
       <td>
         {% for specialty in vet.specialties %}
-        <span>{{ specialty.name ~ " " }}</span>
+        <span>{{ specialty.specialty_name ~ " " }}</span>
         {% endfor %}
       </td>
       {% else %}
