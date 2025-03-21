@@ -36,8 +36,7 @@ pub async fn show_owner(
     let (success_message, error_message) = extract_flash_messages(&messages);
 
     let mut ctx = Context::new();
-    ctx.insert("owner", &owner_with_pets_and_types[0]);
-    ctx.insert("pets", &owner_with_pets_and_types);
+    ctx.insert("owner_with_pets", &owner_with_pets_and_types);
     ctx.insert("success_message", &success_message);
     ctx.insert("error_message", &error_message);
     ctx.insert("current_menu", "owners");
