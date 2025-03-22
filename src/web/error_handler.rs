@@ -12,7 +12,5 @@ pub async fn trigger_error(app_state: web::Data<AppState>) -> Result<HttpRespons
         "Expected: handler used to showcase what happens when an error is propagated",
     );
 
-    let res = render(&app_state.tera, "error.html", ctx)?;
-
-    Ok(res)
+    render(&app_state.tera, "error.html", ctx)
 }

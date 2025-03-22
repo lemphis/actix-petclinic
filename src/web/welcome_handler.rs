@@ -13,7 +13,5 @@ pub async fn welcome(
     ctx.insert("current_menu", "home");
     ctx.insert("translation", translation);
 
-    let res = render(&app_state.tera, "welcome.html", ctx)?;
-
-    Ok(res)
+    render(&app_state.tera, "welcome.html", ctx)
 }
