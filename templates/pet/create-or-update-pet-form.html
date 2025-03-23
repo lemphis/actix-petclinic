@@ -1,0 +1,26 @@
+{% extends "fragments/layout.html" %}
+{% import "fragments/input-field.html" as input %}
+{% import "fragments/select-field.html" as select %}
+{% block content %}
+<h2>New Pet</h2>
+
+<form class="form-horizontal" method="post">
+  <input type="hidden" name="id" value="" />
+  <div class="form-group has-feedback">
+    <div class="form-group">
+      <label class="col-sm-2 control-label">Owner</label>
+      <div class="col-sm-10">
+        <span>{{ owner.first_name }} {{ owner.last_name }}</span>
+      </div>
+    </div>
+    {{ input::input(label="Name", name="name", type="text", before_value=pet.name | default(value=""), errors=errors["name"] | default(value="")) }}
+    {{ input::input(label="Birth Date", name="birth_date", type="date", before_value=pet.birth_date | default(value=""), errors=errors["birth_date"] | default(value="")) }}
+    {{ select::select(label="Type", name="type", items=pet_types) }}
+  </div>
+  <div class="form-group">
+    <div class="col-sm-offset-2 col-sm-10">
+      <button class="btn btn-primary" type="submit">Add Pet</button>
+    </div>
+  </div>
+</form>
+{% endblock content %}
