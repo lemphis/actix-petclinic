@@ -43,7 +43,7 @@ pub struct OwnerWithPetsAndTypes {
 #[derive(Serialize)]
 pub struct PetWithType {
     pub pet_id: u32,
-    pet_name: Option<String>,
+    pub pet_name: Option<String>,
     birth_date: Option<Date>,
     type_id: u32,
     type_name: Option<String>,

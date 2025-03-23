@@ -5,7 +5,7 @@
 <h2>New Pet</h2>
 
 <form class="form-horizontal" method="post">
-  <input type="hidden" name="id" value="" />
+  <input type="hidden" name="id" value="{{ pet.id | default(value="") }}" />
   <div class="form-group has-feedback">
     <div class="form-group">
       <label class="col-sm-2 control-label">Owner</label>
@@ -13,9 +13,9 @@
         <span>{{ owner.first_name }} {{ owner.last_name }}</span>
       </div>
     </div>
-    {{ input::input(label="Name", name="name", type="text", before_value=pet.name | default(value=""), errors=errors["name"] | default(value="")) }}
+    {{ input::input(label="Name", name="pet_name", type="text", before_value=pet.pet_name | default(value=""), errors=errors["pet_name"] | default(value="")) }}
     {{ input::input(label="Birth Date", name="birth_date", type="date", before_value=pet.birth_date | default(value=""), errors=errors["birth_date"] | default(value="")) }}
-    {{ select::select(label="Type", name="type", items=pet_types) }}
+    {{ select::select(label="Type", name="pet_type", items=pet_types) }}
   </div>
   <div class="form-group">
     <div class="col-sm-offset-2 col-sm-10">

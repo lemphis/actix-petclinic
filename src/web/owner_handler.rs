@@ -21,7 +21,7 @@ use crate::{
 static PHONE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\d{10}$").unwrap());
 static NUMERIC_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(?:\d+)?$").unwrap());
 
-#[get("/owners/{owner_id:\\d+}")]
+#[get(r"/owners/{owner_id:\d+}")]
 pub async fn show_owner(
     app_state: web::Data<AppState>,
     path: web::Path<u32>,
@@ -213,7 +213,7 @@ pub async fn process_find_form(
     render(&app_state.tera, "owner/owners-list.html", ctx)
 }
 
-#[get("/owners/{owner_id:\\d+}/edit")]
+#[get(r"/owners/{owner_id:\d+}/edit")]
 pub async fn init_update_owner_form(
     app_state: web::Data<AppState>,
     path: web::Path<u32>,
@@ -232,7 +232,7 @@ pub async fn init_update_owner_form(
     )
 }
 
-#[post("/owners/{owner_id:\\d+}/edit")]
+#[post(r"/owners/{owner_id:\d+}/edit")]
 pub async fn process_update_owner_form(
     app_state: web::Data<AppState>,
     path: web::Path<u32>,
