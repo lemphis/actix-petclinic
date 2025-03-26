@@ -30,13 +30,14 @@ pub async fn show_owner(
     let owner_id = path.into_inner();
     let conn = &app_state.conn;
 
-    let owner_with_pets_and_types =
-        OwnerService::fetch_owner_with_pets_and_types_by_owner_id(conn, owner_id).await?;
+    let owner_with_pets_and_types_and_visits =
+        OwnerService::fetch_owner_with_pets_and_types_and_visits_by_owner_id(conn, owner_id)
+            .await?;
 
     let (success_message, error_message) = extract_flash_messages(&messages);
 
     let mut ctx = Context::new();
-    ctx.insert("owner_with_pets", &owner_with_pets_and_types);
+    ctx.insert("owner", &owner_with_pets_and_types_and_visits);
     ctx.insert("success_message", &success_message);
     ctx.insert("error_message", &error_message);
     ctx.insert("current_menu", "owners");

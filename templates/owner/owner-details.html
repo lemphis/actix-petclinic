@@ -18,25 +18,25 @@
   <tbody>
     <tr>
       <th>Name</th>
-      <td><b>{{ owner_with_pets.first_name }} {{ owner_with_pets.last_name }}</b></td>
+      <td><b>{{ owner.first_name }} {{ owner.last_name }}</b></td>
     </tr>
     <tr>
       <th>Address</th>
-      <td>{{ owner_with_pets.address }}</td>
+      <td>{{ owner.address }}</td>
     </tr>
     <tr>
       <th>City</th>
-      <td>{{ owner_with_pets.city }}</td>
+      <td>{{ owner.city }}</td>
     </tr>
     <tr>
       <th>Telephone</th>
-      <td>{{ owner_with_pets.telephone }}</td>
+      <td>{{ owner.telephone }}</td>
     </tr>
   </tbody>
 </table>
 
-<a href="{{ owner_with_pets.owner_id }}/edit" class="btn btn-primary">Edit Owner</a>
-<a href="{{ owner_with_pets.owner_id }}/pets/new" class="btn btn-primary">Add New Pet</a>
+<a href="{{ owner.owner_id }}/edit" class="btn btn-primary">Edit Owner</a>
+<a href="{{ owner.owner_id }}/pets/new" class="btn btn-primary">Add New Pet</a>
 
 <br />
 <br />
@@ -45,7 +45,7 @@
 
 <table class="table table-striped">
   <tbody>
-    {% for pet in owner_with_pets.pets_with_type %}
+    {% for pet in owner.pets_with_type %}
     <tr>
       <td valign="top">
         <dl class="dl-horizontal">
@@ -54,7 +54,7 @@
           <dt>Birth Date</dt>
           <dd>{{ pet.birth_date }}</dd>
           <dt>Type</dt>
-          <dd>{{ pet.type_name }}</dd>
+          <dd>{{ pet.pet_type.type_name }}</dd>
         </dl>
       </td>
       <td valign="top">
@@ -66,12 +66,18 @@
             </tr>
           </thead>
           <tbody>
+            {% for visit in pet.visits %}
+            <tr>
+              <td>{{ visit.visit_date }}</td>
+              <td>{{ visit.description }}</td>
+            </tr>
+            {% endfor %}
             <tr>
               <td>
-                <a href="{{ owner_with_pets.owner_id }}/pets/{{ pet.pet_id }}/edit">Edit Pet</a>
+                <a href="{{ owner.owner_id }}/pets/{{ pet.pet_id }}/edit">Edit Pet</a>
               </td>
               <td>
-                <a href="{{ owner_with_pets.owner_id }}/pets/{{ pet.pet_id }}/visits/new">Add Visit</a>
+                <a href="{{ owner.owner_id }}/pets/{{ pet.pet_id }}/visits/new">Add Visit</a>
               </td>
             </tr>
           </tbody>
