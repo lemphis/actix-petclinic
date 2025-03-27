@@ -7,6 +7,7 @@ pub mod error_handler;
 pub mod owner_handler;
 pub mod pet_handler;
 pub mod vet_handler;
+pub mod visit_handler;
 pub mod welcome_handler;
 
 pub fn configure_route(cfg: &mut ServiceConfig) {
@@ -21,6 +22,7 @@ pub fn configure_route(cfg: &mut ServiceConfig) {
         .service(owner_handler::init_update_owner_form)
         .service(owner_handler::process_update_owner_form)
         .service(pet_handler::init_creation_form)
+        .service(visit_handler::init_new_visit_form)
         .service(error_handler::trigger_error);
 }
 
