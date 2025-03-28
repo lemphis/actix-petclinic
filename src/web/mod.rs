@@ -1,4 +1,8 @@
-use actix_web::{http::header::ContentType, web::ServiceConfig, HttpResponse};
+use actix_web::{
+    http::{self, header::ContentType},
+    web::ServiceConfig,
+    HttpResponse,
+};
 use tera::{Context, Tera};
 
 use crate::model::app_error::AppError;
@@ -23,6 +27,7 @@ pub fn configure_route(cfg: &mut ServiceConfig) {
         .service(owner_handler::process_update_owner_form)
         .service(pet_handler::init_creation_form)
         .service(visit_handler::init_new_visit_form)
+        .service(visit_handler::process_new_visit_form)
         .service(error_handler::trigger_error);
 }
 
@@ -37,4 +42,10 @@ pub fn render(
         .body(html);
 
     Ok(res)
+}
+
+pub fn redirect(path: String) -> HttpResponse {
+    HttpResponse::Found()
+        .append_header((http::header::LOCATION, path))
+        .finish()
 }

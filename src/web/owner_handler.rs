@@ -1,10 +1,6 @@
 use std::{collections::HashMap, sync::LazyLock};
 
-use actix_web::{
-    get,
-    http::{self},
-    post, web, HttpRequest, HttpResponse,
-};
+use actix_web::{get, post, web, HttpRequest, HttpResponse};
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages, Level};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -14,7 +10,7 @@ use validator::Validate;
 use crate::{
     model::{app_error::AppError, page::Page},
     service::owner_service::OwnerService,
-    web::render,
+    web::{redirect, render},
     AppState,
 };
 
@@ -111,7 +107,7 @@ pub async fn process_creation_form(
 
     FlashMessage::info("New Owner Created").send();
 
-    Ok(redirect_to_owner_detail(new_owner.id))
+    Ok(redirect(format!("/owners/{}", new_owner.id)))
 }
 
 fn handle_validation_errors(
@@ -141,12 +137,6 @@ fn handle_validation_errors(
     ctx.insert("errors", &errors_map);
 
     render(tera, "owner/create-or-update-owner-form.html", ctx)
-}
-
-fn redirect_to_owner_detail(owner_id: u32) -> HttpResponse {
-    HttpResponse::Found()
-        .append_header((http::header::LOCATION, format!("/owners/{owner_id}")))
-        .finish()
 }
 
 #[get("/owners/find")]
@@ -196,7 +186,7 @@ pub async fn process_find_form(
         OwnerService::fetch_owners_with_pet_names(conn, &last_name, cur_page, size).await?;
 
     if cur_page == 1 && owners_with_pet_names.len() == 1 {
-        return Ok(redirect_to_owner_detail(owners_with_pet_names[0].id));
+        return Ok(redirect(format!("/owners/{}", owners_with_pet_names[0].id)));
     }
 
     let page = Page::new(cur_page, owner_total_count);
@@ -268,5 +258,5 @@ pub async fn process_update_owner_form(
 
     FlashMessage::info("Owner Values Updated").send();
 
-    Ok(redirect_to_owner_detail(owner_id))
+    Ok(redirect(format!("/owners/{owner_id}")))
 }
