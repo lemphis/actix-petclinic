@@ -175,8 +175,8 @@ pub async fn process_find_form(
         OwnerService::fetch_owner_count_by_last_name_prefix(&app_state.conn, &last_name).await?;
 
     if owner_total_count == 0 {
-        let translation = app_state.i18n.get(&req);
-        ctx.insert("translation", translation);
+        let not_found_msg = app_state.i18n.translate(&req, "notFound");
+        ctx.insert("not_found_msg", &not_found_msg);
         ctx.insert("last_name", &last_name);
 
         return render(&app_state.tera, "owner/find-owners.html", ctx);

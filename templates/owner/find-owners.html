@@ -21,9 +21,9 @@
           value="{{ last_name | default(value="") }}"
         />
         <span class="help-inline">
-          {% if translation %}
+          {% if not_found_msg %}
           <div>
-            <p>{{ translation["notFound"] }}</p>
+            <p>{{ not_found_msg }}</p>
           </div>
           {% endif %}
         </span>

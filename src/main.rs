@@ -20,7 +20,7 @@ async fn main() -> std::io::Result<()> {
     config::env::load();
     config::log::init();
 
-    let i18n = config::i18n::I18n::new();
+    let i18n = config::i18n::I18n::new("locales");
     let tera = config::tera::init();
     let conn = config::db::connect_db().await;
 
