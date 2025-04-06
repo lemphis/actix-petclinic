@@ -67,7 +67,7 @@ pub async fn init_creation_form(app_state: web::Data<AppState>) -> Result<HttpRe
     render(tera, "owner/create-or-update-owner-form.html", ctx)
 }
 
-#[derive(Debug, Serialize, Deserialize, Validate)]
+#[derive(Serialize, Deserialize, Validate)]
 struct CreateOrUpdateOwnerForm {
     #[validate(length(min = 1, message = "공백일 수 없습니다"))]
     first_name: String,
@@ -140,7 +140,7 @@ pub async fn init_find_form(app_state: web::Data<AppState>) -> Result<HttpRespon
     render(tera, "owner/find-owners.html", ctx)
 }
 
-#[derive(Debug, Serialize, Deserialize, Validate)]
+#[derive(Serialize, Deserialize, Validate)]
 struct FindOwnerRequestQueryParams {
     last_name: Option<String>,
     page: Option<u64>,

@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use sea_orm::{
     prelude::{Date, Expr},
@@ -148,10 +148,11 @@ impl OwnerService {
     fn group_pets_and_visits(
         rows: &[OwnerWithPetsAndTypesAndVisitsQueryResult],
     ) -> Vec<PetWithTypeAndVisits> {
-        rows.iter()
+        let mut pets_and_visits: Vec<PetWithTypeAndVisits> = rows
+            .iter()
             .filter_map(|row| row.pet_id.map(|pet_id| (pet_id, row)))
             .fold(
-                BTreeMap::<u32, Vec<&OwnerWithPetsAndTypesAndVisitsQueryResult>>::new(),
+                HashMap::<u32, Vec<&OwnerWithPetsAndTypesAndVisitsQueryResult>>::new(),
                 |mut acc, (pet_id, row)| {
                     acc.entry(pet_id).or_default().push(row);
                     acc
@@ -159,7 +160,11 @@ impl OwnerService {
             )
             .into_iter()
             .map(|(pet_id, pet_rows)| Self::create_pet_with_type_and_visits(pet_id, &pet_rows))
-            .collect()
+            .collect();
+
+        pets_and_visits.sort_by_key(|p| p.pet_name.clone());
+
+        pets_and_visits
     }
 
     fn create_pet_with_type_and_visits(

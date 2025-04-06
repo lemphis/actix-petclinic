@@ -49,7 +49,7 @@ async fn get_owner_and_pet_types(
     Ok((owner, pet_type_names))
 }
 
-#[derive(Debug, Serialize, Deserialize, Validate)]
+#[derive(Serialize, Deserialize, Validate)]
 struct CreateOrUpdatePetForm {
     #[validate(custom(function = validate_not_blank))]
     pet_name: String,
@@ -85,7 +85,7 @@ pub async fn process_creation_form(
             .pets_with_type
             .into_iter()
             .filter_map(|p| p.pet_name)
-            .any(|name| name == create_pet_form.pet_name)
+            .any(|name| name.to_lowercase() == create_pet_form.pet_name.to_lowercase())
         {
             all_errors.add(
                 "pet_name",

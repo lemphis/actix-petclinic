@@ -1,7 +1,7 @@
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct ErrorResponse {
     message: String,
     timestamp: String,
