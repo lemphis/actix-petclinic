@@ -17,14 +17,13 @@ pub async fn init_new_visit_form(
     app_state: web::Data<AppState>,
     path: web::Path<OwnerWithPetPathParams>,
 ) -> Result<HttpResponse, AppError> {
+    let AppState { conn, tera, .. } = app_state.get_ref();
+
     let OwnerWithPetPathParams { owner_id, pet_id } = path.into_inner();
 
     let owner_with_pets_and_types =
-        OwnerService::fetch_owner_with_pets_and_types_and_visits_by_owner_id(
-            &app_state.conn,
-            owner_id,
-        )
-        .await?;
+        OwnerService::fetch_owner_with_pets_and_types_and_visits_by_owner_id(conn, owner_id)
+            .await?;
 
     let pet = owner_with_pets_and_types
         .pets_with_type
@@ -40,5 +39,5 @@ pub async fn init_new_visit_form(
     ctx.insert("pet", pet);
     ctx.insert("current_menu", "owners");
 
-    render(&app_state.tera, "pet/create-or-update-visit-form.html", ctx)
+    render(tera, "pet/create-or-update-visit-form.html", ctx)
 }

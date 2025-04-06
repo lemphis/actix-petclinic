@@ -5,6 +5,8 @@ use crate::{model::app_error::AppError, web::render, AppState};
 
 #[get("/oups")]
 pub async fn trigger_error(app_state: web::Data<AppState>) -> Result<HttpResponse, AppError> {
+    let AppState { tera, .. } = app_state.get_ref();
+
     let mut ctx = Context::new();
     ctx.insert("current_menu", "error");
     ctx.insert(
@@ -12,5 +14,5 @@ pub async fn trigger_error(app_state: web::Data<AppState>) -> Result<HttpRespons
         "Expected: handler used to showcase what happens when an error is propagated",
     );
 
-    render(&app_state.tera, "error.html", ctx)
+    render(tera, "error.html", ctx)
 }

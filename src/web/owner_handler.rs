@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::LazyLock};
+use std::sync::LazyLock;
 
 use actix_web::{get, post, web, HttpRequest, HttpResponse};
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages, Level};
@@ -8,6 +8,7 @@ use tera::Context;
 use validator::Validate;
 
 use crate::{
+    config::i18n::I18n,
     model::{app_error::AppError, page::Page},
     service::owner_service::OwnerService,
     web::{redirect, render},
@@ -23,8 +24,9 @@ pub async fn show_owner(
     path: web::Path<u32>,
     messages: IncomingFlashMessages,
 ) -> Result<HttpResponse, AppError> {
+    let AppState { conn, tera, .. } = app_state.get_ref();
+
     let owner_id = path.into_inner();
-    let conn = &app_state.conn;
 
     let owner_with_pets_and_types_and_visits =
         OwnerService::fetch_owner_with_pets_and_types_and_visits_by_owner_id(conn, owner_id)
@@ -38,7 +40,7 @@ pub async fn show_owner(
     ctx.insert("error_message", &error_message);
     ctx.insert("current_menu", "owners");
 
-    render(&app_state.tera, "owner/owner-details.html", ctx)
+    render(tera, "owner/owner-details.html", ctx)
 }
 
 fn extract_flash_messages(messages: &IncomingFlashMessages) -> (Option<&str>, Option<&str>) {
@@ -57,14 +59,12 @@ fn extract_flash_messages(messages: &IncomingFlashMessages) -> (Option<&str>, Op
 
 #[get("/owners/new")]
 pub async fn init_creation_form(app_state: web::Data<AppState>) -> Result<HttpResponse, AppError> {
+    let AppState { tera, .. } = app_state.get_ref();
+
     let mut ctx = Context::new();
     ctx.insert("current_menu", "owners");
 
-    render(
-        &app_state.tera,
-        "owner/create-or-update-owner-form.html",
-        ctx,
-    )
+    render(tera, "owner/create-or-update-owner-form.html", ctx)
 }
 
 #[derive(Debug, Serialize, Deserialize, Validate)]
@@ -86,17 +86,20 @@ struct CreateOrUpdateOwnerForm {
 
 #[post("/owners/new")]
 pub async fn process_creation_form(
+    req: HttpRequest,
     app_state: web::Data<AppState>,
     form: web::Form<CreateOrUpdateOwnerForm>,
 ) -> Result<HttpResponse, AppError> {
+    let AppState { conn, tera, i18n } = app_state.get_ref();
+
     let owner = form.into_inner();
 
     if let Err(errors) = owner.validate() {
-        return handle_validation_errors(&app_state.tera, owner, errors);
+        return render_owner_form_with_errors(&req, tera, i18n, owner, errors);
     }
 
     let new_owner = OwnerService::save_owner(
-        &app_state.conn,
+        conn,
         Some(owner.first_name),
         Some(owner.last_name),
         Some(owner.address),
@@ -110,41 +113,31 @@ pub async fn process_creation_form(
     Ok(redirect(format!("/owners/{}", new_owner.id)))
 }
 
-fn handle_validation_errors(
+fn render_owner_form_with_errors(
+    req: &HttpRequest,
     tera: &tera::Tera,
-    owner: CreateOrUpdateOwnerForm,
+    i18n: &I18n,
+    owner_form: CreateOrUpdateOwnerForm,
     errors: validator::ValidationErrors,
 ) -> Result<HttpResponse, AppError> {
-    let mut errors_map: HashMap<String, Vec<String>> = HashMap::new();
-
-    for (field, field_errors) in errors.field_errors().iter() {
-        let error_messages = field_errors
-            .iter()
-            .map(|e| {
-                e.message
-                    .clone()
-                    .unwrap_or_else(|| "잘못된 입력".into())
-                    .to_string()
-            })
-            .collect();
-
-        errors_map.insert(field.to_string(), error_messages);
-    }
+    let errors = i18n.translate_errors(req, &errors);
 
     let mut ctx = Context::new();
     ctx.insert("current_menu", "owners");
-    ctx.insert("owner", &owner);
-    ctx.insert("errors", &errors_map);
+    ctx.insert("owner", &owner_form);
+    ctx.insert("errors", &errors);
 
     render(tera, "owner/create-or-update-owner-form.html", ctx)
 }
 
 #[get("/owners/find")]
 pub async fn init_find_form(app_state: web::Data<AppState>) -> Result<HttpResponse, AppError> {
+    let AppState { tera, .. } = app_state.get_ref();
+
     let mut ctx = Context::new();
     ctx.insert("current_menu", "owners");
 
-    render(&app_state.tera, "owner/find-owners.html", ctx)
+    render(tera, "owner/find-owners.html", ctx)
 }
 
 #[derive(Debug, Serialize, Deserialize, Validate)]
@@ -160,26 +153,27 @@ pub async fn process_find_form(
     app_state: web::Data<AppState>,
     query: web::Query<FindOwnerRequestQueryParams>,
 ) -> Result<HttpResponse, AppError> {
+    let AppState { conn, tera, .. } = app_state.get_ref();
+
     let query = query.into_inner();
     let (last_name, cur_page, size) = (
         query.last_name.unwrap_or("".to_string()),
         query.page.unwrap_or(1),
         query.size.unwrap_or(5),
     );
-    let conn = &app_state.conn;
 
     let mut ctx = Context::new();
     ctx.insert("current_menu", "owners");
 
     let owner_total_count =
-        OwnerService::fetch_owner_count_by_last_name_prefix(&app_state.conn, &last_name).await?;
+        OwnerService::fetch_owner_count_by_last_name_prefix(conn, &last_name).await?;
 
     if owner_total_count == 0 {
         let not_found_msg = app_state.i18n.translate(&req, "notFound");
         ctx.insert("not_found_msg", &not_found_msg);
         ctx.insert("last_name", &last_name);
 
-        return render(&app_state.tera, "owner/find-owners.html", ctx);
+        return render(tera, "owner/find-owners.html", ctx);
     }
 
     let owners_with_pet_names =
@@ -201,7 +195,7 @@ pub async fn process_find_form(
     ctx.insert("query_params", &vec![("last_name", last_name)]);
     ctx.insert("current_menu", "owners");
 
-    render(&app_state.tera, "owner/owners-list.html", ctx)
+    render(tera, "owner/owners-list.html", ctx)
 }
 
 #[get(r"/owners/{owner_id:\d+}/edit")]
@@ -209,31 +203,32 @@ pub async fn init_update_owner_form(
     app_state: web::Data<AppState>,
     path: web::Path<u32>,
 ) -> Result<HttpResponse, AppError> {
+    let AppState { conn, tera, .. } = app_state.get_ref();
+
     let owner_id = path.into_inner();
-    let owner = OwnerService::fetch_owner_by_id(&app_state.conn, owner_id).await?;
+    let owner = OwnerService::fetch_owner_by_id(conn, owner_id).await?;
 
     let mut ctx = Context::new();
     ctx.insert("owner", &owner);
     ctx.insert("current_menu", "owners");
 
-    render(
-        &app_state.tera,
-        "owner/create-or-update-owner-form.html",
-        ctx,
-    )
+    render(tera, "owner/create-or-update-owner-form.html", ctx)
 }
 
 #[post(r"/owners/{owner_id:\d+}/edit")]
 pub async fn process_update_owner_form(
+    req: HttpRequest,
     app_state: web::Data<AppState>,
     path: web::Path<u32>,
     form: web::Form<CreateOrUpdateOwnerForm>,
 ) -> Result<HttpResponse, AppError> {
+    let AppState { conn, tera, i18n } = app_state.get_ref();
+
     let owner_id = path.into_inner();
     let owner = form.into_inner();
 
     if let Err(errors) = owner.validate() {
-        return handle_validation_errors(&app_state.tera, owner, errors);
+        return render_owner_form_with_errors(&req, tera, i18n, owner, errors);
     }
 
     let body_owner_id = owner.id.parse::<u32>().unwrap();
@@ -246,7 +241,7 @@ pub async fn process_update_owner_form(
     }
 
     OwnerService::update_owner(
-        &app_state.conn,
+        conn,
         owner_id,
         Some(owner.first_name),
         Some(owner.last_name),

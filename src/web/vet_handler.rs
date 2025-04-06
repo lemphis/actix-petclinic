@@ -56,7 +56,9 @@ impl From<vet_service::Specialty> for self::Specialty {
 pub async fn show_resources_vet_list(
     app_state: web::Data<AppState>,
 ) -> Result<HttpResponse, AppError> {
-    let vet_list = VetService::fetch_all_vets_with_specialties(&app_state.conn).await?;
+    let AppState { conn, .. } = app_state.get_ref();
+
+    let vet_list = VetService::fetch_all_vets_with_specialties(conn).await?;
 
     let response = ShowResourcesVetListResponse {
         vet_list: vet_list.into_iter().map(Into::into).collect(),
@@ -78,7 +80,8 @@ pub async fn show_vet_list(
     app_state: web::Data<AppState>,
     query: web::Query<ShowVetListQuery>,
 ) -> Result<HttpResponse, AppError> {
-    let conn = &app_state.conn;
+    let AppState { conn, tera, .. } = app_state.get_ref();
+
     let (cur_page, size) = (query.page.unwrap_or(1), query.size.unwrap_or(5));
 
     let vet_total_count = VetService::fetch_all_vets_count(conn).await?;
@@ -99,5 +102,5 @@ pub async fn show_vet_list(
     ctx.insert("query_params", &Vec::<(&str, String)>::new());
     ctx.insert("current_menu", "vets");
 
-    render(&app_state.tera, "vet/vet-list.html", ctx)
+    render(tera, "vet/vet-list.html", ctx)
 }
