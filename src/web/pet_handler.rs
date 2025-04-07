@@ -14,7 +14,7 @@ use tera::Context;
 use tokio::try_join;
 use validator::{Validate, ValidationErrors};
 
-use super::validator::{validate_future_date, validate_not_blank, validate_pet_type};
+use super::validator::{validate_not_blank, validate_pet_type, validate_today_or_past_date};
 
 #[get(r"/owners/{owner_id:\d+}/pets/new")]
 pub async fn init_creation_form(
@@ -53,7 +53,7 @@ async fn get_owner_and_pet_types(
 struct CreateOrUpdatePetForm {
     #[validate(custom(function = validate_not_blank))]
     pet_name: String,
-    #[validate(custom(function = validate_future_date))]
+    #[validate(custom(function = validate_today_or_past_date))]
     birth_date: String,
     #[validate(custom(function = validate_pet_type))]
     pet_type: String,
@@ -107,6 +107,7 @@ pub async fn process_creation_form(
         .find(|t| t.name == Some(create_pet_form.pet_type.clone()))
         .map(|t| t.id)
         .unwrap();
+    // form data 검증 시 확인하였으므로 반드시 Some임
     let birth_date = NaiveDate::parse_from_str(&create_pet_form.birth_date, "%Y-%m-%d").unwrap();
 
     PetService::save_pet(

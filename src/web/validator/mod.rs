@@ -13,14 +13,42 @@ pub fn validate_not_blank(data: &str) -> Result<(), ValidationError> {
     Ok(())
 }
 
-pub fn validate_future_date(date: &str) -> Result<(), ValidationError> {
-    validate_not_blank(date)?;
-
-    let parsed_date = NaiveDate::parse_from_str(date, "%Y-%m-%d")
-        .map_err(|_| create_validation_error("invalid_date", "typeMismatch.birthDate"))?;
+pub fn validate_today_or_past_date(date: &str) -> Result<(), ValidationError> {
+    validate_date_format(date)?;
 
     let today = Local::now().date_naive();
-    if parsed_date > today {
+    // validate_date_format 함수로 검증했으므로 반드시 Some임
+    let target_date = NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap();
+    if target_date > today {
+        return Err(create_validation_error(
+            "today_or_past_date",
+            "typeMismatch.birthDate",
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_date_format(date: &str) -> Result<(), ValidationError> {
+    validate_not_blank(date)?;
+
+    if NaiveDate::parse_from_str(date, "%Y-%m-%d").is_err() {
+        return Err(create_validation_error(
+            "invalid_date",
+            "typeMismatch.birthDate",
+        ));
+    }
+
+    Ok(())
+}
+
+pub fn validate_future_date(date: &str) -> Result<(), ValidationError> {
+    validate_date_format(date)?;
+
+    let today = Local::now().date_naive();
+    // validate_date_format 함수로 검증했으므로 반드시 Some임
+    let target_date = NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap();
+    if target_date < today {
         return Err(create_validation_error(
             "future_date",
             "typeMismatch.birthDate",
