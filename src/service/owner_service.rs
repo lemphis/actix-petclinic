@@ -172,6 +172,18 @@ impl OwnerService {
         pet_rows: &[&OwnerWithPetsAndTypesAndVisitsQueryResult],
     ) -> PetWithTypeAndVisits {
         let first_pet_row = pet_rows.first().unwrap(); // 함수 실행 전 pet_id가 존재할 때만 실행되므로 반드시 Some임
+        let mut visits: Vec<Visit> = pet_rows
+            .iter()
+            .filter_map(|r| {
+                r.visit_id.map(|visit_id| Visit {
+                    visit_id,
+                    visit_date: r.visit_date,
+                    description: r.description.clone(),
+                })
+            })
+            .collect();
+
+        visits.sort_by_key(|v| v.visit_date);
 
         PetWithTypeAndVisits {
             pet_id,
@@ -181,16 +193,7 @@ impl OwnerService {
                 type_id: first_pet_row.type_id.unwrap(),
                 type_name: first_pet_row.type_name.clone(),
             },
-            visits: pet_rows
-                .iter()
-                .filter_map(|r| {
-                    r.visit_id.map(|visit_id| Visit {
-                        visit_id,
-                        visit_date: r.visit_date,
-                        description: r.description.clone(),
-                    })
-                })
-                .collect(),
+            visits,
         }
     }
 
