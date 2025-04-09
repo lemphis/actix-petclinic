@@ -1,13 +1,17 @@
 use actix_web::{get, post, web, HttpRequest, HttpResponse};
 use actix_web_flash_messages::FlashMessage;
 use chrono::NaiveDate;
+use sea_orm::DbConn;
 use serde::{Deserialize, Serialize};
 use tera::Context;
 use validator::Validate;
 
 use crate::{
     model::app_error::AppError,
-    service::{owner_service::OwnerService, visit_service::VisitService},
+    service::{
+        owner_service::{OwnerService, PetWithTypeAndVisits},
+        visit_service::VisitService,
+    },
     web::{redirect, render, validator::validate_future_date},
     AppState,
 };
@@ -27,25 +31,40 @@ pub async fn init_new_visit_form(
 
     let OwnerWithPetPathParams { owner_id, pet_id } = path.into_inner();
 
+    let ctx = create_visit_form_context(conn, owner_id, pet_id).await?;
+
+    render(tera, "pet/create-or-update-visit-form.html", ctx)
+}
+
+async fn create_visit_form_context(
+    conn: &DbConn,
+    owner_id: u32,
+    pet_id: u32,
+) -> Result<Context, AppError> {
     let owner_with_pets_and_types =
         OwnerService::fetch_owner_with_pets_and_types_and_visits_by_owner_id(conn, owner_id)
             .await?;
 
-    let pet = owner_with_pets_and_types
-        .pets_with_type
-        .iter()
+    let pet = find_pet_by_id(&owner_with_pets_and_types.pets_with_type, pet_id)?;
+
+    let mut ctx = Context::new();
+    ctx.insert("owner", &owner_with_pets_and_types);
+    ctx.insert("pet", &pet);
+    ctx.insert("current_menu", "owners");
+
+    Ok(ctx)
+}
+
+fn find_pet_by_id(
+    pets: &[PetWithTypeAndVisits],
+    pet_id: u32,
+) -> Result<&PetWithTypeAndVisits, AppError> {
+    pets.iter()
         .find(|p| p.pet_id == pet_id)
         .ok_or_else(|| AppError::ResourceNotFound {
             resource: "pet".to_string(),
             id: pet_id,
-        })?;
-
-    let mut ctx = Context::new();
-    ctx.insert("owner", &owner_with_pets_and_types);
-    ctx.insert("pet", pet);
-    ctx.insert("current_menu", "owners");
-
-    render(tera, "pet/create-or-update-visit-form.html", ctx)
+        })
 }
 
 #[derive(Serialize, Deserialize, Validate)]
@@ -69,27 +88,11 @@ pub async fn process_new_visit_form(
     let create_visit_form = form.into_inner();
 
     if let Err(errors) = create_visit_form.validate() {
-        let owner_with_pets_and_types =
-            OwnerService::fetch_owner_with_pets_and_types_and_visits_by_owner_id(conn, owner_id)
-                .await?;
-
-        let pet = owner_with_pets_and_types
-            .pets_with_type
-            .iter()
-            .find(|p| p.pet_id == pet_id)
-            .ok_or_else(|| AppError::ResourceNotFound {
-                resource: "pet".to_string(),
-                id: pet_id,
-            })?;
+        let mut ctx = create_visit_form_context(conn, owner_id, pet_id).await?;
+        ctx.insert("visit", &create_visit_form);
 
         let translated_errors = i18n.translate_errors(&req, &errors);
-
-        let mut ctx = Context::new();
         ctx.insert("errors", &translated_errors);
-        ctx.insert("owner", &owner_with_pets_and_types);
-        ctx.insert("pet", pet);
-        ctx.insert("visit", &create_visit_form);
-        ctx.insert("current_menu", "owners");
 
         return render(tera, "pet/create-or-update-visit-form.html", ctx);
     }
