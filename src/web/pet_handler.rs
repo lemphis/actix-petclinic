@@ -1,7 +1,10 @@
 use crate::{
     domain::owner::owners,
     model::app_error::AppError,
-    service::{owner_service::OwnerService, pet_service::PetService},
+    service::{
+        owner_service::{OwnerService, PetWithTypeAndVisits},
+        pet_service::PetService,
+    },
     web::{redirect, render, validator::create_validation_error},
     AppState,
 };
@@ -31,6 +34,7 @@ pub async fn init_creation_form(
     ctx.insert("current_menu", "owners");
     ctx.insert("owner", &owner);
     ctx.insert("pet_types", &pet_type_names);
+    ctx.insert("is_new", &true);
 
     render(tera, "pet/create-or-update-pet-form.html", ctx)
 }
@@ -97,8 +101,15 @@ pub async fn process_creation_form(
     };
 
     if !errors.is_empty() {
-        return render_pet_form_with_errors(&req, app_state, owner_id, create_pet_form, errors)
-            .await;
+        return render_pet_form_with_errors(
+            &req,
+            app_state,
+            owner_id,
+            create_pet_form,
+            errors,
+            true,
+        )
+        .await;
     }
 
     let pet_type_id = PetService::fetch_all_pet_types(conn)
@@ -106,7 +117,8 @@ pub async fn process_creation_form(
         .iter()
         .find(|t| t.name == Some(create_pet_form.pet_type.clone()))
         .map(|t| t.id)
-        .unwrap();
+        .unwrap(); // pet마다 pet type이 반드시 존재하므로 Some임
+
     // form data 검증 시 확인하였으므로 반드시 Some임
     let birth_date = NaiveDate::parse_from_str(&create_pet_form.birth_date, "%Y-%m-%d").unwrap();
 
@@ -130,6 +142,7 @@ async fn render_pet_form_with_errors(
     owner_id: u32,
     pet_form: CreateOrUpdatePetForm,
     errors: validator::ValidationErrors,
+    is_new: bool,
 ) -> Result<HttpResponse, AppError> {
     let AppState { conn, tera, i18n } = app_state.get_ref();
 
@@ -143,6 +156,62 @@ async fn render_pet_form_with_errors(
     ctx.insert("pet", &pet_form);
     ctx.insert("pet_types", &pet_type_names);
     ctx.insert("errors", &translated_errors);
+    ctx.insert("is_new", &is_new);
 
     render(tera, "pet/create-or-update-pet-form.html", ctx)
+}
+
+#[derive(Deserialize)]
+struct OwnerWithPetPathParams {
+    owner_id: u32,
+    pet_id: u32,
+}
+
+#[get(r"/owners/{owner_id:\d+}/pets/{pet_id:\d+}/edit")]
+pub async fn init_update_form(
+    app_state: web::Data<AppState>,
+    path: web::Path<OwnerWithPetPathParams>,
+) -> Result<HttpResponse, AppError> {
+    let AppState { conn, tera, .. } = app_state.get_ref();
+
+    let OwnerWithPetPathParams { owner_id, pet_id } = path.into_inner();
+
+    let (owner_with_pets, pet_types) = try_join!(
+        OwnerService::fetch_owner_with_pets_and_types_and_visits_by_owner_id(conn, owner_id),
+        PetService::fetch_all_pet_types(conn)
+    )?;
+
+    let PetWithTypeAndVisits {
+        pet_name,
+        birth_date,
+        pet_type,
+        ..
+    } = find_pet_by_id(&owner_with_pets.pets_with_type, pet_id)?;
+    // pet name, birth_date, pet type name은 form data를 검증하기 때문에 반드시 존재하므로 Some임
+    let pet_form = CreateOrUpdatePetForm {
+        pet_name: pet_name.clone().unwrap(),
+        birth_date: birth_date.unwrap().to_string(),
+        pet_type: pet_type.type_name.clone().unwrap(),
+    };
+    let pet_type_names: Vec<String> = pet_types.into_iter().filter_map(|t| t.name).collect();
+
+    let mut ctx = Context::new();
+    ctx.insert("current_menu", "owners");
+    ctx.insert("owner", &owner_with_pets);
+    ctx.insert("pet", &pet_form);
+    ctx.insert("pet_types", &pet_type_names);
+
+    render(tera, "pet/create-or-update-pet-form.html", ctx)
+}
+
+fn find_pet_by_id(
+    pets: &[PetWithTypeAndVisits],
+    pet_id: u32,
+) -> Result<&PetWithTypeAndVisits, AppError> {
+    pets.iter()
+        .find(|p| p.pet_id == pet_id)
+        .ok_or_else(|| AppError::ResourceNotFound {
+            resource: "pet".to_string(),
+            id: pet_id,
+        })
 }

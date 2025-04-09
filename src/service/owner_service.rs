@@ -47,15 +47,15 @@ pub struct OwnerWithPetsAndTypesAndVisits {
 pub struct PetWithTypeAndVisits {
     pub pet_id: u32,
     pub pet_name: Option<String>,
-    birth_date: Option<Date>,
-    pet_type: PetType,
+    pub birth_date: Option<Date>,
+    pub pet_type: PetType,
     visits: Vec<Visit>,
 }
 
 #[derive(Serialize)]
 pub struct PetType {
     type_id: u32,
-    type_name: Option<String>,
+    pub type_name: Option<String>,
 }
 
 #[derive(Serialize)]

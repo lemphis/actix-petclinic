@@ -1,11 +1,11 @@
-{% macro select(label, name, items) %}
+{% macro select(label, name, selected_value, items) %}
 <div class="form-group">
   <label class="col-sm-2 control-label">{{ label }}</label>
 
   <div class="col-sm-10">
     <select id="{{ name }}" name="{{ name }}">
       {% for item in items %}
-      <option value="{{ item }}">{{ item }}</option>
+      <option value="{{ item }}" {% if item == selected_value %}selected{% endif %}>{{ item }}</option>
       {% endfor %}
     </select>
     <span class="fa fa-ok form-control-feedback" aria-hidden="true"></span>

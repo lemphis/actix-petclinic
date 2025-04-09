@@ -2,7 +2,7 @@
 {% import "fragments/input-field.html" as input %}
 {% import "fragments/select-field.html" as select %}
 {% block content %}
-<h2>New Pet</h2>
+<h2>{% if is_new %}New {% endif %}Pet</h2>
 
 <form class="form-horizontal" method="post">
   <input type="hidden" name="id" value="{{ pet.id | default(value="") }}" />
@@ -15,11 +15,11 @@
     </div>
     {{ input::input(label="Name", name="pet_name", type="text", before_value=pet.pet_name | default(value=""), errors=errors["pet_name"] | default(value="")) }}
     {{ input::input(label="Birth Date", name="birth_date", type="date", before_value=pet.birth_date | default(value=""), errors=errors["birth_date"] | default(value="")) }}
-    {{ select::select(label="Type", name="pet_type", items=pet_types) }}
+    {{ select::select(label="Type", name="pet_type", selected_value=pet.pet_type | default(value=""), items=pet_types) }}
   </div>
   <div class="form-group">
     <div class="col-sm-offset-2 col-sm-10">
-      <button class="btn btn-primary" type="submit">Add Pet</button>
+      <button class="btn btn-primary" type="submit">{% if is_new %}Add{% else %}Update{% endif %} Pet</button>
     </div>
   </div>
 </form>
