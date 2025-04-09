@@ -75,31 +75,7 @@ pub async fn process_creation_form(
     let owner_id = path.into_inner();
     let create_pet_form = form.into_inner();
 
-    let errors = {
-        let mut all_errors = ValidationErrors::new();
-
-        if let Err(errors) = create_pet_form.validate() {
-            all_errors = errors;
-        }
-
-        let owner_with_pets =
-            OwnerService::fetch_owner_with_pets_and_types_and_visits_by_owner_id(conn, owner_id)
-                .await?;
-        if owner_with_pets
-            .pets_with_type
-            .into_iter()
-            .filter_map(|p| p.pet_name)
-            .any(|name| name.to_lowercase() == create_pet_form.pet_name.to_lowercase())
-        {
-            all_errors.add(
-                "pet_name",
-                create_validation_error("duplicate", "duplicate"),
-            );
-        }
-
-        all_errors
-    };
-
+    let errors = validate_pet_form(conn, owner_id, None, &create_pet_form).await?;
     if !errors.is_empty() {
         return render_pet_form_with_errors(
             &req,
@@ -134,6 +110,49 @@ pub async fn process_creation_form(
     FlashMessage::info("New Pet has been Added").send();
 
     Ok(redirect(format!("/owners/{owner_id}")))
+}
+
+async fn validate_pet_form(
+    conn: &DbConn,
+    owner_id: u32,
+    pet_id: Option<u32>,
+    pet_form: &CreateOrUpdatePetForm,
+) -> Result<ValidationErrors, AppError> {
+    let errors = match pet_form.validate() {
+        Ok(_) => ValidationErrors::new(),
+        Err(mut errors) => {
+            let owner_with_pets =
+                OwnerService::fetch_owner_with_pets_and_types_and_visits_by_owner_id(
+                    conn, owner_id,
+                )
+                .await?;
+
+            let pet_name_lowercase = pet_form.pet_name.to_lowercase();
+            let is_duplicate = owner_with_pets
+                .pets_with_type
+                .into_iter()
+                .filter(|p| {
+                    if let Some(id) = pet_id {
+                        p.pet_id != id
+                    } else {
+                        true
+                    }
+                })
+                .filter_map(|p| p.pet_name)
+                .any(|name| name.to_lowercase() == pet_name_lowercase);
+
+            if is_duplicate {
+                errors.add(
+                    "pet_name",
+                    create_validation_error("duplicate", "duplicate"),
+                );
+            }
+
+            errors
+        }
+    };
+
+    Ok(errors)
 }
 
 async fn render_pet_form_with_errors(
@@ -214,4 +233,54 @@ fn find_pet_by_id(
             resource: "pet".to_string(),
             id: pet_id,
         })
+}
+
+#[post(r"/owners/{owner_id:\d+}/pets/{pet_id:\d+}/edit")]
+pub async fn process_update_form(
+    req: HttpRequest,
+    app_state: web::Data<AppState>,
+    path: web::Path<OwnerWithPetPathParams>,
+    form: web::Form<CreateOrUpdatePetForm>,
+) -> Result<HttpResponse, AppError> {
+    let AppState { conn, .. } = app_state.get_ref();
+
+    let OwnerWithPetPathParams { owner_id, pet_id } = path.into_inner();
+
+    let update_pet_form = form.into_inner();
+
+    let errors = validate_pet_form(conn, owner_id, Some(pet_id), &update_pet_form).await?;
+    if !errors.is_empty() {
+        return render_pet_form_with_errors(
+            &req,
+            app_state,
+            owner_id,
+            update_pet_form,
+            errors,
+            false,
+        )
+        .await;
+    }
+
+    let pet_type_id = PetService::fetch_all_pet_types(conn)
+        .await?
+        .iter()
+        .find(|t| t.name == Some(update_pet_form.pet_type.clone()))
+        .map(|t| t.id)
+        .unwrap(); // pet마다 pet type이 반드시 존재하므로 Some임
+
+    // form data 검증 시 확인하였으므로 반드시 Some임
+    let birth_date = NaiveDate::parse_from_str(&update_pet_form.birth_date, "%Y-%m-%d").unwrap();
+
+    PetService::update_pet(
+        conn,
+        pet_id,
+        Some(update_pet_form.pet_name),
+        Some(birth_date),
+        pet_type_id,
+    )
+    .await?;
+
+    FlashMessage::info("Pet details has been edited").send();
+
+    Ok(redirect(format!("/owners/{owner_id}")))
 }
